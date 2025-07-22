@@ -1,0 +1,192 @@
+'use client';
+import PageBreadcrumb from "@/components/common/PageBreadCrumb";
+import ComponentCard from "@/components/common/ComponentCard";
+import VideoDetailsInputs from "@/components/ui/video/VideoDetailsInputs";
+import StudioSelect from "@/components/ui/video/StudioSelect";
+import PornstarSelect from "@/components/ui/video/PornstarSelect";
+import TagsSelect from "@/components/ui/video/TagsSelect";
+import PosterFetch from "@/components/ui/video/PosterFetch";
+import VideoSourceManager from "@/components/ui/video/VideoSourceManager";
+import { useForm } from "react-hook-form";
+import React from "react";
+import axios from "@/utils/axios";
+import { formatDuration, toDatetimeLocal, formatToYMDHMS } from "@/utils/commonFunc";
+import Swal from 'sweetalert2';
+import { useRouter } from "next/navigation";
+
+interface VideoFormData {
+    title: string;
+    description: string;
+    datetime: string;
+    duration: string;
+    studios: { value: string; label: string }[];
+    pornstars: { value: string; label: string }[];
+    tags: { value: string; label: string }[];
+    thumbnail: string | 'https://diplo-media.s3.eu-central-1.amazonaws.com/2023/06/default-video-thumbnail.jpg';
+    videoSources: {
+        id: string;
+        file_size: number | null;
+        file_type: string | null;
+        quality: string | null;
+        url: string;
+    }[];
+}
+
+export default function EditVideoPage({
+    params,
+}: {
+    params: Promise<{ slug: string }>
+}) {
+    const router = useRouter();
+    const [slug, setSlug] = React.useState<string | null>(null);
+    const [external_id, setExternalId] = React.useState<string | null>(null);
+
+    React.useEffect(() => {
+        params.then(async (resolvedParams) => {
+            setSlug(resolvedParams.slug);
+            try {
+                const response = await axios.get(`/getvideo?slug=${resolvedParams.slug}`);
+
+                if (response.data.success) {
+                    const videoData = response.data.data;
+                    setValue("title", videoData.title);
+                    setValue("description", videoData.description);
+                    setValue("datetime", toDatetimeLocal(videoData.upload_date));
+                    setValue("duration", formatDuration(videoData.duration));
+                    setValue("studios", videoData.studios.map((studio: string) => ({ value: studio, label: studio })));
+                    setValue("pornstars", videoData.pornstars.map((star: string) => ({ value: star, label: star })));
+                    setValue("tags", videoData.tags.map((tag: string) => ({ value: tag, label: tag })));
+                    setValue("thumbnail", videoData.thumbnail);
+                    setExternalId(videoData.external_id || null);
+                    setValue("videoSources", videoData.videoSources.map((source: any) => ({
+                        id: source.video_embed_id || Date.now().toString() + Math.random().toString(36).substring(2, 9),
+                        file_size: source.file_size || null,
+                        file_type: source.file_type || null,
+                        quality: source.quality || null,
+                        url: source.url || ""
+                    })));
+                } else {
+                    Swal.fire({
+                        title: 'Error',
+                        text: response.data.message || 'Failed to fetch video details',
+                        icon: 'error',
+                        confirmButtonText: 'OK'
+                    });
+                }
+            } catch (error) {
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Failed to fetch video details',
+                    icon: 'error',
+                    confirmButtonText: 'OK'
+                });
+            }
+        });
+    }, [params]);
+
+    const { control, handleSubmit, setValue, watch, formState: { errors } } = useForm<VideoFormData>({});
+
+    const onSubmit = async (data: VideoFormData) => {
+
+        const payload = {
+            slug: slug,
+            title: data.title,
+            description: data.description,
+            upload_datetime: formatToYMDHMS(data.datetime),
+            duration: data.duration,
+            studios: data.studios.map((studio) => studio.value),
+            pornstars: data.pornstars.map((star) => star.value),
+            tags: data.tags.map((tag) => tag.value),
+            thumbnail: data.thumbnail,
+            external_id: external_id,
+            videoSources: data.videoSources.map((source) => ({
+                file_size: source.file_size,
+                file_type: source.file_type,
+                quality: source.quality,
+                url: source.url,
+            })) || []
+        };
+
+        axios.post(`/edit-video`, payload).then(response => {
+            if (response.data.success) {
+                Swal.fire({
+                    title: 'Success',
+                    text: 'Video updated successfully!',
+                    icon: 'success',
+                    confirmButtonText: 'OK'
+                }).then(() => {
+                    router.push("/video/list");
+                });
+            } else {
+                Swal.fire({
+                    title: 'Error',
+                    text: response.data.message || 'Failed to Edit video',
+                    icon: 'error',
+                    confirmButtonText: 'OK'
+                });
+            }
+        }).catch(error => {
+            Swal.fire({
+                title: 'Error',
+                text: 'Failed to Edit video',
+                icon: 'error',
+                confirmButtonText: 'OK'
+            });
+        });
+
+    };
+
+    if (!slug) {
+        return (
+            <div className="flex items-center justify-center h-screen">
+                <p>Loading...</p>
+            </div>
+        );
+    }
+
+    return (
+        <div>
+            <PageBreadcrumb pageTitle={`Edit Video - ${slug}`} />
+            <form onSubmit={handleSubmit(onSubmit)}>
+                <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+                    <div className="space-y-6">
+                        <ComponentCard title="Video Details">
+                            <VideoDetailsInputs control={control} errors={errors} />
+                        </ComponentCard>
+
+                        <ComponentCard title="Studio Details">
+                            <StudioSelect control={control} />
+                        </ComponentCard>
+
+                        <ComponentCard title="Pornstar Details">
+                            <PornstarSelect control={control} errors={errors} />
+                        </ComponentCard>
+
+                        <ComponentCard title="Tags Details">
+                            <TagsSelect control={control} errors={errors} />
+                        </ComponentCard>
+                    </div>
+
+                    <div className="space-y-6">
+                        <ComponentCard title="Poster Details">
+                            <PosterFetch control={control} errors={errors} watch={watch} />
+                        </ComponentCard>
+
+                        <ComponentCard title="Video Sources">
+                            <VideoSourceManager
+                                control={control}
+                                name="videoSources"
+                            />
+                        </ComponentCard>
+                    </div>
+                </div>
+                <button
+                    type="submit"
+                    className="ml-2 bg-blue-600 text-white px-4 mt-3 py-2 rounded hover:bg-blue-700 transition-colors"
+                >
+                    Save Changes
+                </button>
+            </form>
+        </div>
+    );
+}
