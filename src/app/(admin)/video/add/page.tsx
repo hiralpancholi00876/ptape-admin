@@ -2,14 +2,13 @@
 import Swal from 'sweetalert2';
 import { useForm } from "react-hook-form";
 import ComponentCard from "@/components/common/ComponentCard";
-import VideoSourceManager from "@/components/ui/video/VideoSourceManager";
-import VideoDetailsInputs from "@/components/ui/video/VideoDetailsInputs";
-import StudioSelect from "@/components/ui/video/StudioSelect";
-import PornstarSelect from "@/components/ui/video/PornstarSelect";
-import TagsSelect from "@/components/ui/video/TagsSelect";
-import PosterFetch from "@/components/ui/video/PosterFetch";
-import Label from "@/components/form/Label";
-import Input from "@/components/form/input/InputField";
+import VideoSourceManager from "@/components/video/VideoSourceManager";
+import VideoDetailsInputs from "@/components/video/VideoDetailsInputs";
+import StudioSelect from "@/components/video/StudioSelect";
+import PornstarSelect from "@/components/video/PornstarSelect";
+import TagsSelect from "@/components/video/TagsSelect";
+import PosterFetch from "@/components/video/PosterFetch";
+import ScrapDetails from "@/components/video/ScrapDetails";
 import React, { useState } from "react";
 import axios from "@/utils/axios";
 import { formatToYMDHMS } from "@/utils/commonFunc";
@@ -108,10 +107,54 @@ export default function AddVideo() {
 
   };
 
-  const [fetchUrl, setFetchUrl] = useState('');
-  const [selectedServer, setSelectedServer] = useState('');
-  const fetchDetails = async () => {
-    console.log("Fetching details for URL:", fetchUrl, "on server:", selectedServer);
+  // Handler for scraped video data
+  const handleScrapedData = (data: any) => {
+    if (data) {
+      // Populate form fields with scraped data
+      if (data.title) setValue('title', data.title);
+      if (data.description) setValue('description', data.description);
+      if (data.thumbnail) setValue('thumbnail', data.thumbnail);
+      
+      // Handle studios if available
+      if (data.studios && Array.isArray(data.studios)) {
+        const studioOptions = data.studios.map((studio: any) => ({
+          value: studio,
+          label: studio
+        }));
+        setValue('studios', studioOptions);
+      }
+      
+      // Handle pornstars if available
+      if (data.pornstars && Array.isArray(data.pornstars)) {
+        const pornstarOptions = data.pornstars.map((pornstar: any) => ({
+          value: pornstar,
+          label: pornstar
+        }));
+        setValue('pornstars', pornstarOptions);
+      }
+      
+      // Handle tags if available
+      if (data.tags && Array.isArray(data.tags)) {
+        const tagOptions = data.tags.map((tag: any) => ({
+          value: tag,
+          label: tag
+        }));
+        setValue('tags', tagOptions);
+      }
+      
+      // Handle video sources if available
+      if (data.videoSources && Array.isArray(data.videoSources)) {
+        setValue('videoSources', data.videoSources);
+      }
+      
+      // Show success message
+      Swal.fire({
+        title: 'Success',
+        text: 'Video details have been fetched and populated!',
+        icon: 'success',
+        confirmButtonText: 'OK'
+      });
+    }
   };
 
   return (
@@ -149,29 +192,7 @@ export default function AddVideo() {
             </ComponentCard>
 
             <ComponentCard title="Fetch Video Details">
-              <div>
-                <Label>Videos</Label>
-                <Input
-                  type="text"
-                  placeholder="Enter url"
-                  defaultValue={fetchUrl}
-                  onChange={(e) => setFetchUrl(e.target.value)}
-                />
-                <Label className="mt-3">Select Website</Label>
-                <select className="w-full border rounded p-2" onChange={(e) => setSelectedServer(e.target.value)} value={selectedServer}>
-                  <option value="">Select Server</option>
-                  <option value="server1">Server 1</option>
-                  <option value="server2">Server 2</option>
-                  <option value="server3">Server 3</option>
-                </select>
-                <button
-                  type="button"
-                  onClick={() => fetchDetails()}
-                  className="mt-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
-                >
-                  Fetch Details
-                </button>
-              </div>
+              <ScrapDetails onDataReceived={handleScrapedData} />
             </ComponentCard>
           </div>
         </div>

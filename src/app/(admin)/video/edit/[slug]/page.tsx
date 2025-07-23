@@ -1,12 +1,12 @@
 'use client';
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import ComponentCard from "@/components/common/ComponentCard";
-import VideoDetailsInputs from "@/components/ui/video/VideoDetailsInputs";
-import StudioSelect from "@/components/ui/video/StudioSelect";
-import PornstarSelect from "@/components/ui/video/PornstarSelect";
-import TagsSelect from "@/components/ui/video/TagsSelect";
-import PosterFetch from "@/components/ui/video/PosterFetch";
-import VideoSourceManager from "@/components/ui/video/VideoSourceManager";
+import VideoDetailsInputs from "@/components/video/VideoDetailsInputs";
+import StudioSelect from "@/components/video/StudioSelect";
+import PornstarSelect from "@/components/video/PornstarSelect";
+import TagsSelect from "@/components/video/TagsSelect";
+import PosterFetch from "@/components/video/PosterFetch";
+import VideoSourceManager from "@/components/video/VideoSourceManager";
 import { useForm } from "react-hook-form";
 import React from "react";
 import axios from "@/utils/axios";
