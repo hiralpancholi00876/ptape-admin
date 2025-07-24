@@ -11,7 +11,7 @@ import PosterFetch from "@/components/video/PosterFetch";
 import ScrapDetails from "@/components/video/ScrapDetails";
 import React, { useState } from "react";
 import axios from "@/utils/axios";
-import { formatToYMDHMS } from "@/utils/commonFunc";
+import { toUTC } from "@/utils/commonFunc";
 import { useRouter } from "next/navigation";
 
 // Define the form data interface
@@ -64,11 +64,11 @@ export default function AddVideo() {
     let sendData = {
       title: data.title,
       description: data.description,
-      upload_datetime: formatToYMDHMS(data.datetime),
+      upload_datetime: toUTC(data.datetime),
       duration: data.duration,
-      studios: data.studios.map(studio => studio.value),
-      pornstars: data.pornstars.map(pornstar => pornstar.value),
-      tags: data.tags.map(tag => tag.value),
+      studios: data.studios.map(studio => studio.label),
+      pornstars: data.pornstars.map(pornstar => pornstar.label),
+      tags: data.tags.map(tag => tag.label),
       thumbnail: data.thumbnail,
       videoSources: data.videoSources?.map(source => ({
         file_size: source.file_size,

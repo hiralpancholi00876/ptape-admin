@@ -10,7 +10,7 @@ import VideoSourceManager from "@/components/video/VideoSourceManager";
 import { useForm } from "react-hook-form";
 import React from "react";
 import axios from "@/utils/axios";
-import { formatDuration, toDatetimeLocal, formatToYMDHMS } from "@/utils/commonFunc";
+import { formatDuration, toLocal, toUTC } from "@/utils/commonFunc";
 import Swal from 'sweetalert2';
 import { useRouter } from "next/navigation";
 
@@ -51,11 +51,11 @@ export default function EditVideoPage({
                     const videoData = response.data.data;
                     setValue("title", videoData.title);
                     setValue("description", videoData.description);
-                    setValue("datetime", toDatetimeLocal(videoData.upload_date));
+                    setValue("datetime", toLocal(videoData.upload_date));
                     setValue("duration", formatDuration(videoData.duration));
-                    setValue("studios", videoData.studios.map((studio: string) => ({ value: studio, label: studio })));
-                    setValue("pornstars", videoData.pornstars.map((star: string) => ({ value: star, label: star })));
-                    setValue("tags", videoData.tags.map((tag: string) => ({ value: tag, label: tag })));
+                    setValue("studios", videoData.studios.map((studio: string, index: number) => ({ value: studio + index, label: studio })));
+                    setValue("pornstars", videoData.pornstars.map((star: string, index: number) => ({ value: star + index, label: star })));
+                    setValue("tags", videoData.tags.map((tag: string, index: number) => ({ value: tag + index, label: tag })));
                     setValue("thumbnail", videoData.thumbnail);
                     setExternalId(videoData.external_id || null);
                     setValue("videoSources", videoData.videoSources.map((source: any) => ({
@@ -92,11 +92,11 @@ export default function EditVideoPage({
             slug: slug,
             title: data.title,
             description: data.description,
-            upload_datetime: formatToYMDHMS(data.datetime),
+            upload_datetime: toUTC(data.datetime),
             duration: data.duration,
-            studios: data.studios.map((studio) => studio.value),
-            pornstars: data.pornstars.map((star) => star.value),
-            tags: data.tags.map((tag) => tag.value),
+            studios: data.studios.map((studio) => studio.label),
+            pornstars: data.pornstars.map((star) => star.label),
+            tags: data.tags.map((tag) => tag.label),
             thumbnail: data.thumbnail,
             external_id: external_id,
             videoSources: data.videoSources.map((source) => ({

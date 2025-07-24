@@ -60,26 +60,26 @@ function timeAgo(utcDateString) {
 }
 
 // Formats a datetime string to "YYYY-MM-DD HH:mm:ss"
-function formatToYMDHMS(datetimeStr) {
+function toUTC(datetimeStr) {
   const date = new Date(datetimeStr);
 
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0'); // Month is 0-indexed
-  const day = String(date.getDate()).padStart(2, '0');
-
-  const hours = String(date.getHours()).padStart(2, '0');
-  const mins = String(date.getMinutes()).padStart(2, '0');
-  const secs = '00'; // seconds are not in the input, so default to 00
+  // Get UTC components
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  const hours = String(date.getUTCHours()).padStart(2, '0');
+  const mins = String(date.getUTCMinutes()).padStart(2, '0');
+  const secs = String(date.getUTCSeconds()).padStart(2, '0');
 
   return `${year}-${month}-${day} ${hours}:${mins}:${secs}`;
 }
 
 // Converts a UTC date string to a local datetime string in "YYYY-MM-DDTHH:MM" format
-function toDatetimeLocal(utcString) {
+function toLocal(utcString) {
   const date = new Date(utcString);
   const offset = date.getTimezoneOffset();
   const local = new Date(date.getTime() - offset * 60 * 1000);
   return local.toISOString().slice(0, 16); // "YYYY-MM-DDTHH:MM"
 }
 
-export { formatDuration, convertNumberToSuffix, timeAgo, formatToYMDHMS, toDatetimeLocal };
+export { formatDuration, convertNumberToSuffix, timeAgo, toUTC, toLocal };
