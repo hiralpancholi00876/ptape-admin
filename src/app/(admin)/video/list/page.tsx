@@ -11,7 +11,9 @@ import {
   Eye,
   Clock,
   Plus,
-  Search
+  Search,
+  Flag,
+  FlagOff
 } from 'lucide-react';
 import axios from "@/utils/axios";
 import Swal from 'sweetalert2';
@@ -27,6 +29,7 @@ interface Video {
   studios: string[];
   tags: string[];
   is_active: number;
+  is_dmca: number;
 }
 
 export default function VideoListPage() {
@@ -108,6 +111,49 @@ export default function VideoListPage() {
       return false;
     }
   };
+
+  const handleDmca = async (video_id: number, isDmca: number) => {
+    try {
+      isDmca = isDmca == 1 ? 0 : 1; // Toggle DMCA status
+
+      Swal.fire({
+        title: 'Are you sure?',
+        text: isDmca === 1
+          ? "This will remove the DMCA takedown from the video!"
+          : "restoring the video will mark it as DMCA takedown!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: isDmca === 1 ? 'Remove DMCA' : 'Restore Video'
+      }).then(async (result) => {
+        if (result.isConfirmed) {
+
+          await axios.post(`/video-dmca`, {
+            video_id: video_id,
+            action: isDmca === 1 ? "remove" : "restore"
+          });
+
+          // state update
+          setVideoList(prevVideos =>
+            prevVideos.map(video =>
+              video.video_id === video_id ? { ...video, is_dmca: isDmca === 1 ? 1 : 0 } : video
+            )
+          );
+          Swal.fire(
+            'Success!',
+            isDmca === 1 ? 'DMCA takedown removed from video.' : 'Video marked as DMCA takedown.',
+            'success'
+          );
+        }
+      });
+
+      return true;
+    }
+    catch (error) {
+      return false;
+    }
+  }
 
   const handleToggle = async (video_id: number, isActive: boolean) => {
     try {
@@ -206,6 +252,19 @@ export default function VideoListPage() {
               >
                 <Trash className="h-5 w-5" />
               </button>
+              <button
+                onClick={() => handleDmca(video.video_id, video.is_dmca)}
+                className={`p-2 rounded-full ${video.is_dmca === 1
+                    ? "bg-green-600 text-white hover:bg-green-700"
+                    : "bg-red-600 text-white hover:bg-red-700"
+                  } dark:bg-gray-800 dark:text-red-400 dark:hover:bg-gray-700`}
+              >
+                {video.is_dmca === 1 ? (
+                  <FlagOff className="h-5 w-5 text-white dark:text-red-400" />
+                ) : (
+                  <Flag className="h-5 w-5 text-white dark:text-red-400" />
+                )}
+              </button>
             </div>
 
             <div className="px-4 py-3">
@@ -241,7 +300,7 @@ export default function VideoListPage() {
               <div className="flex items-center justify-between">
                 <ToggleSwitch
                   label="Active"
-                  defaultChecked={video.is_active === 1}
+                  checked={video.is_active === 1}
                   onChange={(checked) => handleToggle(video.video_id, checked)}
                 />
               </div>

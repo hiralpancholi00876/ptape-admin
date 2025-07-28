@@ -253,7 +253,7 @@ export default function PornstarPage() {
                                             </button>
                                             <ToggleSwitch
                                                 label="Active"
-                                                defaultChecked={pornstar.is_active === 1}
+                                                checked={pornstar.is_active === 1}
                                                 onChange={(checked) => handleToggle(pornstar.pstar_id, checked)}
                                             />
                                         </div>

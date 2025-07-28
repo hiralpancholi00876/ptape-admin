@@ -7,22 +7,26 @@ import PornstarSelect from "@/components/video/PornstarSelect";
 import TagsSelect from "@/components/video/TagsSelect";
 import PosterFetch from "@/components/video/PosterFetch";
 import VideoSourceManager from "@/components/video/VideoSourceManager";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import React from "react";
 import axios from "@/utils/axios";
 import { formatDuration, toLocal, toUTC } from "@/utils/commonFunc";
 import Swal from 'sweetalert2';
 import { useRouter } from "next/navigation";
+import ToggleSwitch from "@/components/form/switch/Switch";
 
 interface VideoFormData {
     title: string;
     description: string;
+    meta_title: string;
+    meta_description: string;
     datetime: string;
     duration: string;
     studios: { value: string; label: string }[];
     pornstars: { value: string; label: string }[];
     tags: { value: string; label: string }[];
     thumbnail: string | 'https://diplo-media.s3.eu-central-1.amazonaws.com/2023/06/default-video-thumbnail.jpg';
+    is_active: boolean;
     videoSources: {
         id: string;
         file_size: number | null;
@@ -51,12 +55,15 @@ export default function EditVideoPage({
                     const videoData = response.data.data;
                     setValue("title", videoData.title);
                     setValue("description", videoData.description);
+                    setValue("meta_title", videoData.meta_title || '');
+                    setValue("meta_description", videoData.meta_description || '');
                     setValue("datetime", toLocal(videoData.upload_date));
                     setValue("duration", formatDuration(videoData.duration));
                     setValue("studios", videoData.studios.map((studio: string, index: number) => ({ value: studio + index, label: studio })));
                     setValue("pornstars", videoData.pornstars.map((star: string, index: number) => ({ value: star + index, label: star })));
                     setValue("tags", videoData.tags.map((tag: string, index: number) => ({ value: tag + index, label: tag })));
                     setValue("thumbnail", videoData.thumbnail);
+                    setValue("is_active", videoData.is_active === 1);
                     setExternalId(videoData.external_id || null);
                     setValue("videoSources", videoData.videoSources.map((source: any) => ({
                         id: source.video_embed_id || Date.now().toString() + Math.random().toString(36).substring(2, 9),
@@ -92,6 +99,8 @@ export default function EditVideoPage({
             slug: slug,
             title: data.title,
             description: data.description,
+            meta_title: data.meta_title || null,
+            meta_description: data.meta_description || null,
             upload_datetime: toUTC(data.datetime),
             duration: data.duration,
             studios: data.studios.map((studio) => studio.label),
@@ -99,6 +108,7 @@ export default function EditVideoPage({
             tags: data.tags.map((tag) => tag.label),
             thumbnail: data.thumbnail,
             external_id: external_id,
+            is_active: data.is_active ? 1 : 0,
             videoSources: data.videoSources.map((source) => ({
                 file_size: source.file_size,
                 file_type: source.file_type,
@@ -152,6 +162,17 @@ export default function EditVideoPage({
                     <div className="space-y-6">
                         <ComponentCard title="Video Details">
                             <VideoDetailsInputs control={control} errors={errors} />
+                            <Controller
+                                name="is_active"
+                                control={control}
+                                render={({ field }) => (
+                                    <ToggleSwitch
+                                        label="Is Active"
+                                        checked={field.value}
+                                        onChange={field.onChange}
+                                    />
+                                )}
+                            />
                         </ComponentCard>
 
                         <ComponentCard title="Studio Details">

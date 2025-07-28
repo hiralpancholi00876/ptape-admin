@@ -211,7 +211,7 @@ export default function StudiosPage() {
                                             </button>
                                             <ToggleSwitch
                                                 label="Active"
-                                                defaultChecked={studio.is_active === 1}
+                                                checked={studio.is_active === 1}
                                                 onChange={(checked) => handleToggle(studio.studio_id, checked)}
                                             />
                                         </div>

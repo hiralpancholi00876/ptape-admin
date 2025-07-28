@@ -202,7 +202,7 @@ export default function TagPage() {
                                             </button>
                                             <ToggleSwitch
                                                 label="Active"
-                                                defaultChecked={tag.is_active === 1}
+                                                checked={tag.is_active === 1}
                                                 onChange={(checked) => handleToggle(tag.tag_id, checked)}
                                             />
                                         </div>

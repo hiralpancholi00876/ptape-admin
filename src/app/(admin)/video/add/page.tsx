@@ -1,6 +1,6 @@
 'use client';
 import Swal from 'sweetalert2';
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import ComponentCard from "@/components/common/ComponentCard";
 import VideoSourceManager from "@/components/video/VideoSourceManager";
 import VideoDetailsInputs from "@/components/video/VideoDetailsInputs";
@@ -9,16 +9,21 @@ import PornstarSelect from "@/components/video/PornstarSelect";
 import TagsSelect from "@/components/video/TagsSelect";
 import PosterFetch from "@/components/video/PosterFetch";
 import ScrapDetails from "@/components/video/ScrapDetails";
-import React, { useState } from "react";
+import React from "react";
 import axios from "@/utils/axios";
 import { toUTC } from "@/utils/commonFunc";
 import { useRouter } from "next/navigation";
+import ToggleSwitch from "@/components/form/switch/Switch";
 
 // Define the form data interface
 interface VideoFormData {
   // Video Details
   title: string;
   description: string;
+  // Video Metadata
+  meta_title: string;
+  meta_description: string;
+
   datetime: string;
   duration: string;
 
@@ -33,6 +38,7 @@ interface VideoFormData {
 
   // Poster Details
   thumbnail: string;
+  is_active: boolean;
 
   videoSources: {
     id: string;
@@ -50,12 +56,15 @@ export default function AddVideo() {
     defaultValues: {
       title: '',
       description: '',
+      meta_title: '',
+      meta_description: '',
       datetime: '',
       duration: '',
       studios: [],
       pornstars: [],
       tags: [],
       thumbnail: 'https://diplo-media.s3.eu-central-1.amazonaws.com/2023/06/default-video-thumbnail.jpg',
+      is_active: false,
     }
   });
   const router = useRouter();
@@ -64,12 +73,15 @@ export default function AddVideo() {
     let sendData = {
       title: data.title,
       description: data.description,
+      meta_title: data.meta_title || null,
+      meta_description: data.meta_description || null,
       upload_datetime: toUTC(data.datetime),
       duration: data.duration,
       studios: data.studios.map(studio => studio.label),
       pornstars: data.pornstars.map(pornstar => pornstar.label),
       tags: data.tags.map(tag => tag.label),
       thumbnail: data.thumbnail,
+      is_active: data.is_active ? 1 : 0,
       videoSources: data.videoSources?.map(source => ({
         file_size: source.file_size,
         file_type: source.file_type,
@@ -104,7 +116,6 @@ export default function AddVideo() {
         confirmButtonText: 'OK'
       });
     });
-
   };
 
   // Handler for scraped video data
@@ -114,7 +125,7 @@ export default function AddVideo() {
       if (data.title) setValue('title', data.title);
       if (data.description) setValue('description', data.description);
       if (data.thumbnail) setValue('thumbnail', data.thumbnail);
-      
+
       // Handle studios if available
       if (data.studios && Array.isArray(data.studios)) {
         const studioOptions = data.studios.map((studio: any) => ({
@@ -123,7 +134,7 @@ export default function AddVideo() {
         }));
         setValue('studios', studioOptions);
       }
-      
+
       // Handle pornstars if available
       if (data.pornstars && Array.isArray(data.pornstars)) {
         const pornstarOptions = data.pornstars.map((pornstar: any) => ({
@@ -132,7 +143,7 @@ export default function AddVideo() {
         }));
         setValue('pornstars', pornstarOptions);
       }
-      
+
       // Handle tags if available
       if (data.tags && Array.isArray(data.tags)) {
         const tagOptions = data.tags.map((tag: any) => ({
@@ -141,12 +152,12 @@ export default function AddVideo() {
         }));
         setValue('tags', tagOptions);
       }
-      
+
       // Handle video sources if available
       if (data.videoSources && Array.isArray(data.videoSources)) {
         setValue('videoSources', data.videoSources);
       }
-      
+
       // Show success message
       Swal.fire({
         title: 'Success',
@@ -164,6 +175,17 @@ export default function AddVideo() {
           <div className="space-y-6">
             <ComponentCard title="Video Details">
               <VideoDetailsInputs control={control} errors={errors} />
+              <Controller
+              name="is_active"
+              control={control}
+              render={({ field }) => (
+                <ToggleSwitch
+                  label="Is Active"
+                  checked={field.value}
+                  onChange={field.onChange}
+                />
+              )}
+            />
             </ComponentCard>
 
             <ComponentCard title="Studio Details">
