@@ -9,9 +9,10 @@ import PornstarSelect from "@/components/video/PornstarSelect";
 import TagsSelect from "@/components/video/TagsSelect";
 import PosterFetch from "@/components/video/PosterFetch";
 import ScrapDetails from "@/components/video/ScrapDetails";
+import JsonInput from "@/components/video/JsonInput";
 import React from "react";
 import axios from "@/utils/axios";
-import { toUTC } from "@/utils/commonFunc";
+import { toLocal, toUTC } from "@/utils/commonFunc";
 import { useRouter } from "next/navigation";
 import ToggleSwitch from "@/components/form/switch/Switch";
 
@@ -19,7 +20,7 @@ import ToggleSwitch from "@/components/form/switch/Switch";
 interface VideoFormData {
   // Video Details
   title: string;
-  description: string;
+  description: string | null;
   // Video Metadata
   meta_title: string;
   meta_description: string;
@@ -72,7 +73,7 @@ export default function AddVideo() {
 
     let sendData = {
       title: data.title,
-      description: data.description,
+      description: data.description || null,
       meta_title: data.meta_title || null,
       meta_description: data.meta_description || null,
       upload_datetime: toUTC(data.datetime),
@@ -125,6 +126,10 @@ export default function AddVideo() {
       if (data.title) setValue('title', data.title);
       if (data.description) setValue('description', data.description);
       if (data.thumbnail) setValue('thumbnail', data.thumbnail);
+      if (data.duration) setValue('duration', data.duration);
+      if (data.datetime) setValue('datetime', toLocal(toUTC(data.datetime)));
+      if (data.meta_title) setValue('meta_title', data.meta_title);
+      if (data.meta_description) setValue('meta_description', data.meta_description);
 
       // Handle studios if available
       if (data.studios && Array.isArray(data.studios)) {
@@ -215,6 +220,9 @@ export default function AddVideo() {
 
             <ComponentCard title="Fetch Video Details">
               <ScrapDetails onDataReceived={handleScrapedData} />
+            </ComponentCard>
+            <ComponentCard title="Json Input">
+              <JsonInput onDataReceived={handleScrapedData} />
             </ComponentCard>
           </div>
         </div>

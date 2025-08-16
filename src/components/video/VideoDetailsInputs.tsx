@@ -36,12 +36,11 @@ const VideoDetails: React.FC<VideoDetailsProps> = ({ control, errors }) => {
       <Controller
         name="description"
         control={control}
-        rules={{ required: "Description is required" }}
         render={({ field }) => (
           <>
             <TextArea
               placeholder="Enter description"
-              value={field.value}
+              value={field.value || ""}
               onChange={(value) => field.onChange(value)}
             />
             {errors.description?.message && (
