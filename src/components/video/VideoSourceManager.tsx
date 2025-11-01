@@ -18,7 +18,7 @@ const VideoSourceManager: React.FC<VideoSourceManagerProps> = ({ control, name, 
       id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
       file_size: source.file_size || null,
       file_type: source.file_type || 'mp4',
-      quality: source.quality || '',
+      quality: source?.quality || '720p',
       url: source.url,
     }))
   });
@@ -26,7 +26,7 @@ const VideoSourceManager: React.FC<VideoSourceManagerProps> = ({ control, name, 
   // Remove the server-related state and API call since we no longer need it
 
   const handleAddRow = () => {
-    const newRow = { id: Date.now().toString(), file_size: null, file_type: 'mp4', quality: '', url: "" };
+    const newRow = { id: Date.now().toString(), file_size: null, file_type: 'mp4', quality: '720p', url: "" };
     const updatedSources = [...sources, newRow];
     onChange(updatedSources);
   };
@@ -37,7 +37,7 @@ const VideoSourceManager: React.FC<VideoSourceManagerProps> = ({ control, name, 
   };
 
   const handleInputChange = (id: string, field: string, value: any) => {
-    const updatedSources = sources.map((source: { 
+    const updatedSources = sources.map((source: {
       id: string;
       file_size: number | null;
       file_type: string;
@@ -115,7 +115,7 @@ const VideoSourceManager: React.FC<VideoSourceManagerProps> = ({ control, name, 
             <select
               id={`quality-select-${source.id}`}
               name={`quality-select-${source.id}`}
-              value={source.quality}
+              value={source.quality || "720p"}
               onChange={(e) => {
                 e.stopPropagation();
                 handleInputChange(source.id, "quality", e.target.value);

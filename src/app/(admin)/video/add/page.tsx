@@ -12,8 +12,8 @@ import ScrapDetails from "@/components/video/ScrapDetails";
 import JsonInput from "@/components/video/JsonInput";
 import React from "react";
 import axios from "@/utils/axios";
-import { toLocal, toUTC } from "@/utils/commonFunc";
 import { useRouter } from "next/navigation";
+import { toUTC } from "@/utils/commonFunc";
 import ToggleSwitch from "@/components/form/switch/Switch";
 
 // Define the form data interface
@@ -52,23 +52,33 @@ interface VideoFormData {
 
 
 export default function AddVideo() {
+  const router = useRouter();
+  let draftVideoData: any = null;
+  if (typeof window !== 'undefined') {
+    const storedData = localStorage.getItem('selectedVideo');
+    if (storedData) {
+      draftVideoData = JSON.parse(storedData);
+      localStorage.removeItem('selectedVideo'); // Clear after retrieving
+    }
+  }
+
   // Set up react-hook-form
   const { control, handleSubmit, formState: { errors }, setValue, watch } = useForm<VideoFormData>({
     defaultValues: {
-      title: '',
+      title: draftVideoData?.title || '',
       description: '',
-      meta_title: '',
-      meta_description: '',
-      datetime: '',
-      duration: '',
-      studios: [],
-      pornstars: [],
+      meta_title: draftVideoData?.meta_title || '',
+      meta_description: draftVideoData?.meta_description || '',
+      datetime: draftVideoData?.datetime,
+      duration: draftVideoData?.duration || '00:00:00',
+      studios: draftVideoData?.studios ? draftVideoData.studios.map((studio: string) => ({ value: studio, label: studio })) : [],
+      pornstars: draftVideoData?.pornstars ? draftVideoData.pornstars.map((pornstar: string) => ({ value: pornstar, label: pornstar })) : [],
       tags: [],
       thumbnail: 'https://diplo-media.s3.eu-central-1.amazonaws.com/2023/06/default-video-thumbnail.jpg',
       is_active: false,
     }
   });
-  const router = useRouter();
+
   const onSubmit = (data: VideoFormData) => {
 
     let sendData = {
@@ -127,7 +137,7 @@ export default function AddVideo() {
       if (data.description) setValue('description', data.description);
       if (data.thumbnail) setValue('thumbnail', data.thumbnail);
       if (data.duration) setValue('duration', data.duration);
-      if (data.datetime) setValue('datetime', toLocal(toUTC(data.datetime)));
+      if (data.datetime) setValue('datetime', data.datetime);
       if (data.meta_title) setValue('meta_title', data.meta_title);
       if (data.meta_description) setValue('meta_description', data.meta_description);
 
@@ -181,16 +191,16 @@ export default function AddVideo() {
             <ComponentCard title="Video Details">
               <VideoDetailsInputs control={control} errors={errors} />
               <Controller
-              name="is_active"
-              control={control}
-              render={({ field }) => (
-                <ToggleSwitch
-                  label="Is Active"
-                  checked={field.value}
-                  onChange={field.onChange}
-                />
-              )}
-            />
+                name="is_active"
+                control={control}
+                render={({ field }) => (
+                  <ToggleSwitch
+                    label="Is Active"
+                    checked={field.value}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
             </ComponentCard>
 
             <ComponentCard title="Studio Details">

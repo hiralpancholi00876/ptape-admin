@@ -11,7 +11,6 @@ import {
   Eye,
   Clock,
   Plus,
-  Search,
   Flag,
   FlagOff
 } from 'lucide-react';
@@ -27,17 +26,17 @@ interface Video {
   views: number;
   upload_date: string;
   studios: string[];
-  tags: string[];
+  pstars: string[];
   is_active: number;
   is_dmca: number;
 }
 
 export default function VideoListPage() {
-
   const [videoList, setVideoList] = useState<Video[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
+  const [hasLoadedPreferences, setHasLoadedPreferences] = useState(false);
 
   // Fetch video list from API
   const fetchVideos = async (page = 1, query = "") => {
@@ -47,7 +46,6 @@ export default function VideoListPage() {
       if (query) {
         addSearchQuery = `&search=${encodeURIComponent(query)}`;
       }
-
 
       const response = await axios.get(`/videos?page=${page}${addSearchQuery}`);
 
@@ -71,8 +69,27 @@ export default function VideoListPage() {
   };
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    const savedPage = window.localStorage.getItem("currentPage");
+    const savedQuery = window.localStorage.getItem("videoSearchQuery");
+    if (savedPage) {
+      const parsedPage = parseInt(savedPage, 10);
+      if (!Number.isNaN(parsedPage)) setCurrentPage(parsedPage);
+    }
+    if (savedQuery) setSearchQuery(savedQuery);
+    setHasLoadedPreferences(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hasLoadedPreferences) return;
     fetchVideos(currentPage, searchQuery);
-  }, [currentPage]);
+  }, [currentPage, searchQuery, hasLoadedPreferences]);
+
+  useEffect(() => {
+    if (!hasLoadedPreferences || typeof window === "undefined") return;
+    window.localStorage.setItem("currentPage", currentPage.toString());
+    window.localStorage.setItem("videoSearchQuery", searchQuery);
+  }, [currentPage, searchQuery, hasLoadedPreferences]);
 
   const handleDelete = async (video_id: number) => {
     try {
@@ -198,11 +215,13 @@ export default function VideoListPage() {
             />
           </div>
           <button
-            onClick={() => fetchVideos(1, searchQuery)}
-            className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            onClick={() => {
+              setSearchQuery("");
+              setCurrentPage(1);
+            }}
+            className="flex items-center space-x-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
           >
-            <Search className="h-5 w-5" />
-            <span> Search</span>
+            <span><Trash /></span>
           </button>
           <button
             onClick={() => redirect("/video/add")}
@@ -210,6 +229,12 @@ export default function VideoListPage() {
           >
             <Plus className="h-5 w-5" />
             <span>Add Video</span>
+          </button>
+          <button
+            onClick={() => redirect("/video/drafts")}
+            className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+          >
+            <span>View Drafts</span>
           </button>
         </div>
       </div>
@@ -255,8 +280,8 @@ export default function VideoListPage() {
               <button
                 onClick={() => handleDmca(video.video_id, video.is_dmca)}
                 className={`p-2 rounded-full ${video.is_dmca === 1
-                    ? "bg-green-600 text-white hover:bg-green-700"
-                    : "bg-red-600 text-white hover:bg-red-700"
+                  ? "bg-green-600 text-white hover:bg-green-700"
+                  : "bg-red-600 text-white hover:bg-red-700"
                   } dark:bg-gray-800 dark:text-red-400 dark:hover:bg-gray-700`}
               >
                 {video.is_dmca === 1 ? (
@@ -267,7 +292,7 @@ export default function VideoListPage() {
               </button>
             </div>
 
-            <div className="px-4 py-3">
+            <div className="px-4 py-1">
               <div className="font-bold text-lg mb-1 truncate dark:text-white">{video.title}</div>
               <div className="flex items-center text-gray-500 dark:text-gray-400 text-sm mb-1">
                 <span className="flex gap-1"><Eye className="h-5 w-5" /> {convertNumberToSuffix(video.views)} views</span>
@@ -288,12 +313,12 @@ export default function VideoListPage() {
 
             <div className="px-4 pb-3">
               <div className="flex flex-wrap mb-4 mt-2">
-                {video.tags.map((tag, index) => (
+                {video.pstars?.map((pstar, index) => (
                   <span
                     key={index}
                     className="inline-block bg-gray-100 dark:bg-gray-700 rounded-full px-2 py-1 text-sm font-medium text-gray-700 dark:text-gray-300 mr-1 mb-1"
                   >
-                    #{tag}
+                    {pstar}
                   </span>
                 ))}
               </div>
