@@ -1,17 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react'; // Added useEffect
+import { useState, useEffect } from 'react';
 import { Modal } from "@/components/ui/modal";
 import Button from "@/components/ui/button/Button";
 import axios from "@/utils/axios";
 import { timeAgo } from "@/utils/commonFunc";
 import { X, Check, Loader2, Camera } from 'lucide-react';
-import { ScreenshotModal } from './ScreenshotModal'; // Assuming it's in the same folder
+import { ScreenshotModal } from './ScreenshotModal';
 
 // Required interfaces
 interface Video {
     title: string;
-    link: string; // needed for screenshots
+    link: string;
     thumbnail: string;
     datetime?: string;
     status: string | undefined;
@@ -32,6 +32,7 @@ export function VideoSelectModal({ isOpen, onClose }: VideoSelectModalProps) {
     const [selectedVideos, setSelectedVideos] = useState<Set<string>>(new Set());
     const [apiSelectedVideos, setApiSelectedVideos] = useState<Set<string>>(new Set());
     const [currentPage, setCurrentPage] = useState(1);
+    const [pageInput, setPageInput] = useState<string>('1');
     const [isModalLoading, setIsModalLoading] = useState(false);
     const [isLoadMoreLoading, setIsLoadMoreLoading] = useState(false);
     const [hasMorePages, setHasMorePages] = useState(true);
@@ -61,6 +62,7 @@ export function VideoSelectModal({ isOpen, onClose }: VideoSelectModalProps) {
                     if (page === 1) setAvailableVideos([]);
                 }
                 setCurrentPage(page);
+                setPageInput(String(page));
             } else {
                 console.error('Failed to fetch videos');
                 setHasMorePages(false);
@@ -77,7 +79,6 @@ export function VideoSelectModal({ isOpen, onClose }: VideoSelectModalProps) {
     const alreadySelectedVideos = async () => {
         try {
             let response = await axios.get('/check-already-selected-videos');
-            // If successful, update the selectedVideos state
             setSelectedVideos(new Set(response.data.data));
             setApiSelectedVideos(new Set(response.data.data));
         } catch (error) {
@@ -86,14 +87,13 @@ export function VideoSelectModal({ isOpen, onClose }: VideoSelectModalProps) {
     };
 
     // --- Load videos when modal opens ---
-    // This replicates the logic from your original `openModal` function
     useEffect(() => {
         if (isOpen) {
             fetchAvailableVideos(1);
             alreadySelectedVideos();
         }
-    }, [isOpen]); // Depends only on isOpen
-    
+    }, [isOpen]);
+
     // --- Custom Close Handler ---
     const handleClose = () => {
         setAvailableVideos([]);
@@ -102,9 +102,9 @@ export function VideoSelectModal({ isOpen, onClose }: VideoSelectModalProps) {
         setIsModalLoading(false);
         setIsLoadMoreLoading(false);
         setHasMorePages(true);
-        onClose(); // Call the parent's prop
+        onClose();
     };
-    
+
     // --- SELECTION LOGIC ---
     const handleVideoSelect = (videoId: string) => {
         const newSelected = new Set(selectedVideos);
@@ -118,7 +118,7 @@ export function VideoSelectModal({ isOpen, onClose }: VideoSelectModalProps) {
 
     // --- Screenshot Modal Handlers ---
     const openScreenshotModal = (e: React.MouseEvent, videoLink: string) => {
-        e.stopPropagation(); // Prevent card selection
+        e.stopPropagation();
         setSelectedVideoLink(videoLink);
         setIsScreenshotModalOpen(true);
     };
@@ -130,31 +130,27 @@ export function VideoSelectModal({ isOpen, onClose }: VideoSelectModalProps) {
 
     // --- Add Videos Handler ---
     const handleAddClick = async () => {
-        
         const videosToAdd = availableVideos.filter((v) =>
             selectedVideos.has(v.link)
         );
 
-        // remove already selected videos from the list
         const updatedAvailableVideos = availableVideos.filter(
             (video) => !selectedVideos.has(video.link)
         );
-        
-        setAvailableVideos(updatedAvailableVideos);
 
-        // Clear selection
+        setAvailableVideos(updatedAvailableVideos);
         setSelectedVideos(new Set());
 
         axios.post('/save-to-upload-draft', videosToAdd.filter(video => !apiSelectedVideos.has(video.link)));
 
-        handleClose(); // Close modal after adding
+        handleClose();
     };
 
     return (
         <>
             <Modal
                 isOpen={isOpen}
-                onClose={handleClose} // Use custom handler
+                onClose={handleClose}
                 className="max-w-4xl p-0"
             >
                 {/* Modal Header */}
@@ -182,13 +178,12 @@ export function VideoSelectModal({ isOpen, onClose }: VideoSelectModalProps) {
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {availableVideos.map((video, index:any) => {
-                                // --- CRITICAL FIX: Use video.id, not index ---
+                            {availableVideos.map((video, index: any) => {
                                 const isSelected = selectedVideos.has(video.link);
                                 return (
                                     <div
-                                        key={index} // <-- ALWAYS USE UNIQUE ID
-                                        onClick={() => handleVideoSelect(video.link)} // <-- USE ID
+                                        key={index}
+                                        onClick={() => handleVideoSelect(video.link)}
                                         className={`group relative bg-white rounded-lg border-2 overflow-hidden cursor-pointer transition-all ${isSelected
                                             ? 'border-blue-500 shadow-lg'
                                             : 'border-gray-200 hover:border-gray-300'
@@ -237,17 +232,42 @@ export function VideoSelectModal({ isOpen, onClose }: VideoSelectModalProps) {
                         {selectedVideos.size} video{selectedVideos.size !== 1 ? 's' : ''} selected
                     </p>
                     <div className="flex gap-3 items-center">
-                        {hasMorePages && (
+                        <div className="flex items-center space-x-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => fetchAvailableVideos(Math.max(1, currentPage - 1))}
+                                disabled={isLoadMoreLoading || currentPage <= 1}
+                            >
+                                Prev
+                            </Button>
+
+                            <input
+                                type="number"
+                                min={1}
+                                value={pageInput}
+                                onChange={(e) => setPageInput(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        const val = (e.target as HTMLInputElement).value;
+                                        const p = Math.max(1, parseInt(val || '1', 10));
+                                        if (!isNaN(p)) fetchAvailableVideos(p);
+                                    }
+                                }}
+                                className="w-20 text-center border rounded px-2 py-1"
+                                aria-label="Page number"
+                            />
+
                             <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => fetchAvailableVideos(currentPage + 1)}
-                                disabled={isLoadMoreLoading}
+                                disabled={isLoadMoreLoading || !hasMorePages}
                             >
                                 {isLoadMoreLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                                Load More
+                                Next
                             </Button>
-                        )}
+                        </div>
                         <Button
                             variant="outline"
                             size="sm"
@@ -257,7 +277,7 @@ export function VideoSelectModal({ isOpen, onClose }: VideoSelectModalProps) {
                         </Button>
                         <Button
                             size="sm"
-                            onClick={handleAddClick} // Updated
+                            onClick={handleAddClick}
                             disabled={selectedVideos.size === 0}
                             className="disabled:bg-gray-300 disabled:cursor-not-allowed"
                         >

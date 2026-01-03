@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Plus, RefreshCw, Trash2, Search, Upload } from 'lucide-react';
 // Import the new modal component
 import { VideoSelectModal } from './VideoSelectModal'; // Assuming it's in the same folder
+import { RemoteUploadModal } from './RemoteUploadModal';
 import axios from '@/utils/axios';
+import Swal from 'sweetalert2';
 import { timeAgo } from "@/utils/commonFunc";
 import { useRouter } from 'next/navigation';
 
@@ -29,6 +31,9 @@ export default function DirectUploadPage() {
 
     // State for the selection modal
     const [isModalOpen, setIsModalOpen] = useState(false);
+    
+    // State for remote upload modal
+    const [isRemoteUploadModalOpen, setIsRemoteUploadModalOpen] = useState(false);
 
     // --- MODAL HANDLERS ---
     const openModal = () => setIsModalOpen(true);
@@ -39,6 +44,9 @@ export default function DirectUploadPage() {
             fetchMainVideos();
         }, 2000); // Slight delay to ensure modal has closed
     }
+
+    const openRemoteUploadModal = () => setIsRemoteUploadModalOpen(true);
+    const closeRemoteUploadModal = () => setIsRemoteUploadModalOpen(false);
 
     // Fetch main videos on component mount
     function fetchMainVideos() {
@@ -53,8 +61,25 @@ export default function DirectUploadPage() {
     }, []);
 
     const handleDeleteVideo = (link: string) => {
-        setMainVideos(mainVideos.filter(video => video.link !== link));
-        axios.post<ApiResponse<null>>('/delete-draft-video', { link });
+        Swal.fire({
+            title: 'Are you sure?',
+            text: "This will delete the draft video. You won't be able to revert this!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, delete it!'
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                try {
+                    await axios.post<ApiResponse<null>>('/delete-draft-video', { link });
+                    setMainVideos(prev => prev.filter(video => video.link !== link));
+                    Swal.fire('Deleted!', 'Draft video has been deleted.', 'success');
+                } catch (error) {
+                    Swal.fire('Error', 'Failed to delete draft video.', 'error');
+                }
+            }
+        });
     };
 
     const handleAddVideo = (video: Video) => {
@@ -65,14 +90,21 @@ export default function DirectUploadPage() {
     return (
         <div className="p-6 max-w-7xl mx-auto">
             <div className="mb-8">
-                <h1 className="text-3xl font-bold text-gray-900">Direct Upload Videos</h1>
-                <p className="text-gray-600 mt-2">Manage your video uploads</p>
+                <h1 className="text-3xl font-bold text-gray-900">Draft Upload Videos</h1>
+                <p className="text-gray-600 mt-2">Manage video uploads</p>
                 <div className='flex justify-end gap-4'>
                     <button
                         onClick={fetchMainVideos}
                         className="mt-2 flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
                     >
                         <RefreshCw className="h-5 w-5" />
+                    </button>
+                    <button 
+                        onClick={openRemoteUploadModal} 
+                        className="mt-2 flex items-center space-x-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+                    >
+                        <Upload className="h-5 w-5" />
+                        <span>Remote Upload</span>
                     </button>
                     <button onClick={openModal} className="mt-2 flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
                         <Plus className="h-5 w-5" />
@@ -120,6 +152,13 @@ export default function DirectUploadPage() {
                                     <Trash2 size={16} className="text-red-500" />
                                     <span className="text-sm text-red-500">Delete</span>
                                 </button>
+                                <button
+                                    onClick={() => window.open(`https://www.google.com/search?tbm=isch&q=${video.title}`, '_blank')} // --- FIX: Pass ID
+                                    className="flex-1 flex items-center justify-center gap-2 p-2 rounded-lg bg-green-50 hover:bg-green-100 transition-colors"
+                                >
+                                    <Search size={16} className="text-green-500" />
+                                    <span className="text-sm text-green-500">Search</span>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -130,6 +169,12 @@ export default function DirectUploadPage() {
             <VideoSelectModal
                 isOpen={isModalOpen}
                 onClose={closeModal}
+            />
+
+            {/* Remote Upload Modal */}
+            <RemoteUploadModal
+                isOpen={isRemoteUploadModalOpen}
+                onClose={closeRemoteUploadModal}
             />
         </div>
     );
