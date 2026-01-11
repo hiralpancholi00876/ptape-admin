@@ -18,7 +18,7 @@ const ScrapDetails: React.FC<ScrapDetailsProps> = ({ onDataReceived }) => {
         { key: 'description', label: 'Description' },
         { key: 'studios', label: 'Studios' },
         { key: 'pornstars', label: 'Pornstars' },
-        { key: 'tags', label: 'Tags' },
+        { key: 'categories', label: 'Categories' },
         { key: 'thumbnail', label: 'Thumbnail' },
     ];
 
@@ -51,10 +51,10 @@ const ScrapDetails: React.FC<ScrapDetailsProps> = ({ onDataReceived }) => {
         try {
             setLoading(true);
             setError(null);
-            
+
             // If all fields are selected, send empty array, otherwise send selected fields
             const fieldsToSend = isAllSelected ? [] : selectedFields;
-            
+
             const response = await axios.post('/scrap-video', {
                 url: url.trim(),
                 fields: fieldsToSend
@@ -63,7 +63,7 @@ const ScrapDetails: React.FC<ScrapDetailsProps> = ({ onDataReceived }) => {
             if (response.data && onDataReceived) {
                 onDataReceived(response.data.data);
             }
-            
+
             console.log("Video details fetched successfully:", response.data);
         } catch (error: any) {
             const errorMessage = error.response?.data?.message || 'Failed to fetch video details';
@@ -102,15 +102,15 @@ const ScrapDetails: React.FC<ScrapDetailsProps> = ({ onDataReceived }) => {
                             <strong>All</strong>
                         </label>
                     </div>
-                    <div style={{ 
-                        display: 'grid', 
-                        gridTemplateColumns: 'repeat(2, 1fr)', 
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(2, 1fr)',
                         gap: '8px',
                         paddingLeft: '20px'
                     }}>
                         {availableFields.map(field => (
-                            <label 
-                                key={field.key} 
+                            <label
+                                key={field.key}
                                 style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
                             >
                                 <input
@@ -128,9 +128,9 @@ const ScrapDetails: React.FC<ScrapDetailsProps> = ({ onDataReceived }) => {
             </div>
 
             {error && (
-                <div style={{ 
-                    color: 'red', 
-                    fontSize: '14px', 
+                <div style={{
+                    color: 'red',
+                    fontSize: '14px',
                     marginBottom: '16px',
                     padding: '8px',
                     backgroundColor: '#fef2f2',

@@ -18,6 +18,7 @@ interface BadgeProps {
   startIcon?: React.ReactNode; // Icon at the start
   endIcon?: React.ReactNode; // Icon at the end
   children: React.ReactNode; // Badge content
+  className?: string; // Additional className
 }
 
 const Badge: React.FC<BadgeProps> = ({
@@ -25,6 +26,7 @@ const Badge: React.FC<BadgeProps> = ({
   color = "primary",
   size = "md",
   startIcon,
+  className = "",
   endIcon,
   children,
 }) => {

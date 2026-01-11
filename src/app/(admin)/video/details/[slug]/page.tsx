@@ -126,11 +126,11 @@ export default function ViewVideoPage({
                                 </div>
                             </ComponentCard>
 
-                            <ComponentCard title="Tags Details">
+                            <ComponentCard title="Category Details">
                                 <div className="flex flex-wrap gap-2">
-                                    {videoDetails?.tags?.map((tag: string, index: number) => (
+                                    {videoDetails?.categories?.map((category: string, index: number) => (
                                         <span key={index} className="inline-block bg-gray-100 dark:bg-gray-700 rounded-full px-3 py-1 text-sm font-medium text-gray-700 dark:text-gray-300">
-                                            <Tags className="inline-block w-4 h-4 mr-1" /> {tag}
+                                            <Tags className="inline-block w-4 h-4 mr-1" /> {category}
                                         </span>
                                     ))}
                                 </div>

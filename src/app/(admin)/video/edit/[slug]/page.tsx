@@ -4,7 +4,6 @@ import ComponentCard from "@/components/common/ComponentCard";
 import VideoDetailsInputs from "@/components/video/VideoDetailsInputs";
 import StudioSelect from "@/components/video/StudioSelect";
 import PornstarSelect from "@/components/video/PornstarSelect";
-import TagsSelect from "@/components/video/TagsSelect";
 import PosterFetch from "@/components/video/PosterFetch";
 import VideoSourceManager from "@/components/video/VideoSourceManager";
 import { useForm, Controller } from "react-hook-form";
@@ -14,6 +13,7 @@ import { formatDuration, toLocal, toUTC } from "@/utils/commonFunc";
 import Swal from 'sweetalert2';
 import { useRouter } from "next/navigation";
 import ToggleSwitch from "@/components/form/switch/Switch";
+import CategoryDetails from "@/components/video/CategoryDetails";
 
 interface VideoFormData {
     title: string;
@@ -24,7 +24,7 @@ interface VideoFormData {
     duration: string;
     studios: { value: string; label: string }[];
     pornstars: { value: string; label: string }[];
-    tags: { value: string; label: string }[];
+    categories: { value: string; label: string }[];
     thumbnail: string | 'https://diplo-media.s3.eu-central-1.amazonaws.com/2023/06/default-video-thumbnail.jpg';
     is_active: boolean;
     videoSources: {
@@ -61,7 +61,7 @@ export default function EditVideoPage({
                     setValue("duration", formatDuration(videoData.duration));
                     setValue("studios", videoData.studios.map((studio: string, index: number) => ({ value: studio + index, label: studio })));
                     setValue("pornstars", videoData.pornstars.map((star: string, index: number) => ({ value: star + index, label: star })));
-                    setValue("tags", videoData.tags.map((tag: string, index: number) => ({ value: tag + index, label: tag })));
+                    setValue("categories", videoData.categories.map((category: string, index: number) => ({ value: category + index, label: category })));
                     setValue("thumbnail", videoData.thumbnail);
                     setValue("is_active", videoData.is_active === 1);
                     setExternalId(videoData.external_id || null);
@@ -105,7 +105,7 @@ export default function EditVideoPage({
             duration: data.duration,
             studios: data.studios.map((studio) => studio.label),
             pornstars: data.pornstars.map((star) => star.label),
-            tags: data.tags.map((tag) => tag.label),
+            categories: data.categories.map((category) => category.label),
             thumbnail: data.thumbnail,
             external_id: external_id,
             is_active: data.is_active ? 1 : 0,
@@ -183,8 +183,8 @@ export default function EditVideoPage({
                             <PornstarSelect control={control} errors={errors} />
                         </ComponentCard>
 
-                        <ComponentCard title="Tags Details">
-                            <TagsSelect control={control} errors={errors} />
+                        <ComponentCard title="Category Details">
+                            <CategoryDetails control={control} errors={errors} />
                         </ComponentCard>
                     </div>
 

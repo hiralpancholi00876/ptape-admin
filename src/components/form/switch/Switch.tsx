@@ -5,6 +5,7 @@ interface SwitchProps {
   label: string;
   checked?: boolean;
   disabled?: boolean;
+  size?: "sm" | "md" | "lg";
   onChange?: (checked: boolean) => void;
   color?: "blue" | "gray"; // Added prop to toggle color theme
 }
@@ -14,6 +15,7 @@ const Switch: React.FC<SwitchProps> = ({
   checked = false,
   disabled = false,
   onChange,
+  size = "md",
   color = "blue", // Default to blue color
 }) => {
 

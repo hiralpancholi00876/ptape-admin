@@ -6,7 +6,6 @@ import VideoSourceManager from "@/components/video/VideoSourceManager";
 import VideoDetailsInputs from "@/components/video/VideoDetailsInputs";
 import StudioSelect from "@/components/video/StudioSelect";
 import PornstarSelect from "@/components/video/PornstarSelect";
-import TagsSelect from "@/components/video/TagsSelect";
 import PosterFetch from "@/components/video/PosterFetch";
 import ScrapDetails from "@/components/video/ScrapDetails";
 import JsonInput from "@/components/video/JsonInput";
@@ -15,6 +14,7 @@ import axios from "@/utils/axios";
 import { useRouter } from "next/navigation";
 import { toUTC } from "@/utils/commonFunc";
 import ToggleSwitch from "@/components/form/switch/Switch";
+import CategoryDetails from '@/components/video/CategoryDetails';
 
 // Define the form data interface
 interface VideoFormData {
@@ -34,8 +34,8 @@ interface VideoFormData {
   // Pornstar Details
   pornstars: { value: string; label: string }[];
 
-  // Tags Details
-  tags: { value: string; label: string }[];
+  // category Details
+  categories: { value: string; label: string }[];
 
   // Poster Details
   thumbnail: string;
@@ -74,7 +74,7 @@ export default function AddVideo() {
       duration: draftVideoData?.duration || '00:00:00',
       studios: draftVideoData?.studios ? draftVideoData.studios.map((studio: string) => ({ value: studio, label: studio })) : [],
       pornstars: draftVideoData?.pornstars ? draftVideoData.pornstars.map((pornstar: string) => ({ value: pornstar, label: pornstar })) : [],
-      tags: [],
+      categories: [],
       thumbnail: 'https://diplo-media.s3.eu-central-1.amazonaws.com/2023/06/default-video-thumbnail.jpg',
       is_active: false,
       videoSources: [{
@@ -98,7 +98,7 @@ export default function AddVideo() {
       duration: data.duration,
       studios: data.studios.map(studio => studio.label),
       pornstars: data.pornstars.map(pornstar => pornstar.label),
-      tags: data.tags.map(tag => tag.label),
+      categories: data.categories.map(category => category.label),
       thumbnail: data.thumbnail,
       is_active: data.is_active ? 1 : 0,
       videoSources: data.videoSources?.map(source => ({
@@ -168,12 +168,12 @@ export default function AddVideo() {
       }
 
       // Handle tags if available
-      if (data.tags && Array.isArray(data.tags)) {
-        const tagOptions = data.tags.map((tag: any) => ({
-          value: tag,
-          label: tag
+      if (data.categories && Array.isArray(data.categories)) {
+        const categoryOptions = data.categories.map((category: any) => ({
+          value: category,
+          label: category
         }));
-        setValue('tags', tagOptions);
+        setValue('categories', categoryOptions);
       }
 
       // Handle video sources if available
@@ -219,8 +219,8 @@ export default function AddVideo() {
               <PornstarSelect control={control} errors={errors} />
             </ComponentCard>
 
-            <ComponentCard title="Tags Details">
-              <TagsSelect control={control} errors={errors} />
+            <ComponentCard title="Category Details">
+              <CategoryDetails control={control} errors={errors} />
             </ComponentCard>
           </div>
 
@@ -239,9 +239,9 @@ export default function AddVideo() {
             <ComponentCard title="Fetch Video Details">
               <ScrapDetails onDataReceived={handleScrapedData} />
             </ComponentCard>
-            <ComponentCard title="Json Input">
+            {/* <ComponentCard title="Json Input">
               <JsonInput onDataReceived={handleScrapedData} />
-            </ComponentCard>
+            </ComponentCard> */}
           </div>
         </div>
         <button

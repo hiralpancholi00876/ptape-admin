@@ -12,7 +12,15 @@ import {
   Clock,
   Plus,
   Flag,
-  FlagOff
+  FlagOff,
+  CheckSquare,
+  Square,
+  Loader2,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight
 } from 'lucide-react';
 import axios from "@/utils/axios";
 import Swal from 'sweetalert2';
@@ -36,7 +44,10 @@ export default function VideoListPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [hasLoadedPreferences, setHasLoadedPreferences] = useState(false);
+  const [selectedVideos, setSelectedVideos] = useState<number[]>([]);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Fetch video list from API
   const fetchVideos = async (page = 1, query = "") => {
@@ -69,27 +80,82 @@ export default function VideoListPage() {
   };
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const savedPage = window.localStorage.getItem("currentPage");
-    const savedQuery = window.localStorage.getItem("videoSearchQuery");
-    if (savedPage) {
-      const parsedPage = parseInt(savedPage, 10);
-      if (!Number.isNaN(parsedPage)) setCurrentPage(parsedPage);
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 800);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (debouncedSearch !== "") {
+      setCurrentPage(1);
     }
-    if (savedQuery) setSearchQuery(savedQuery);
-    setHasLoadedPreferences(true);
-  }, []);
+  }, [debouncedSearch]);
+
 
   useEffect(() => {
-    if (!hasLoadedPreferences) return;
-    fetchVideos(currentPage, searchQuery);
-  }, [currentPage, searchQuery, hasLoadedPreferences]);
+    fetchVideos(currentPage, debouncedSearch);
+    setSelectedVideos([]);
+  }, [currentPage, debouncedSearch]);
 
-  useEffect(() => {
-    if (!hasLoadedPreferences || typeof window === "undefined") return;
-    window.localStorage.setItem("currentPage", currentPage.toString());
-    window.localStorage.setItem("videoSearchQuery", searchQuery);
-  }, [currentPage, searchQuery, hasLoadedPreferences]);
+  const toggleSelectVideo = (videoId: number) => {
+    setSelectedVideos(prev =>
+      prev.includes(videoId)
+        ? prev.filter(id => id !== videoId)
+        : [...prev, videoId]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedVideos.length === videoList.length) {
+      setSelectedVideos([]);
+    } else {
+      setSelectedVideos(videoList.map(v => v.video_id));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedVideos.length === 0) return;
+
+    Swal.fire({
+      title: `Delete ${selectedVideos.length} videos?`,
+      text: "You won't be able to revert this!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, delete them!'
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        setIsDeleting(true);
+        try {
+          // Process deletions in parallel
+          await Promise.all(selectedVideos.map(id =>
+            axios.post(`/delete`, { id, type: "video" })
+          ));
+
+          setVideoList(prevVideos =>
+            prevVideos.filter(video => !selectedVideos.includes(video.video_id))
+          );
+          setSelectedVideos([]);
+
+          Swal.fire(
+            'Deleted!',
+            `${selectedVideos.length} videos have been deleted.`,
+            'success'
+          );
+        } catch (error) {
+          Swal.fire(
+            'Error',
+            'Some videos could not be deleted.',
+            'error'
+          );
+        } finally {
+          setIsDeleting(false);
+        }
+      }
+    });
+  };
 
   const handleDelete = async (video_id: number) => {
     try {
@@ -200,39 +266,118 @@ export default function VideoListPage() {
     }
   };
 
+  const getPaginationRange = () => {
+    const delta = 2;
+    const range = [];
+    const rangeWithDots: (number | string)[] = [];
+    let l;
+
+    range.push(1);
+
+    if (totalPages <= 1) return [1];
+
+    for (let i = currentPage - delta; i <= currentPage + delta; i++) {
+      if (i < totalPages && i > 1) {
+        range.push(i);
+      }
+    }
+
+    range.push(totalPages);
+
+    for (let i of range) {
+      if (l) {
+        if (i - l === 2) {
+          rangeWithDots.push(l + 1);
+        } else if (i - l !== 1) {
+          rangeWithDots.push('...');
+        }
+      }
+      rangeWithDots.push(i);
+      l = i;
+    }
+
+    return rangeWithDots;
+  };
+
   return (
-    <div className="transition-colors duration-200 dark:bg-gray-900 min-h-screen">
+    <div className="transition-colors duration-200 dark:bg-gray-900 min-h-screen p-4 md:p-6">
       <PageBreadcrumb pageTitle="Video Management" />
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center space-x-4">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search videos..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="border border-gray-300 dark:border-gray-700 rounded-lg px-4 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+
+      {/* Batch Action Bar */}
+      <div className={`fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 transition-all duration-300 ${selectedVideos.length > 0 ? 'translate-y-0 opacity-100' : 'translate-y-20 opacity-0 pointer-events-none'}`}>
+        <div className="bg-white dark:bg-gray-800 shadow-2xl rounded-full px-6 py-3 border border-gray-200 dark:border-gray-700 flex items-center gap-6">
+          <span className="text-gray-700 dark:text-gray-200 font-medium whitespace-nowrap">
+            {selectedVideos.length} selected
+          </span>
+          <div className="h-6 w-px bg-gray-300 dark:bg-gray-600"></div>
           <button
-            onClick={() => {
-              setSearchQuery("");
-              setCurrentPage(1);
-            }}
-            className="flex items-center space-x-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+            onClick={() => setSelectedVideos([])}
+            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 font-medium transition-colors"
           >
-            <span><Trash /></span>
+            Cancel
           </button>
           <button
+            onClick={handleBulkDelete}
+            disabled={isDeleting}
+            className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-full font-medium transition-colors shadow-sm disabled:opacity-70 disabled:cursor-not-allowed"
+          >
+            {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash className="w-4 h-4" />}
+            Delete Selected
+          </button>
+        </div>
+      </div>
+
+      <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4">
+        {/* Search */}
+        <div className="relative w-full md:w-96">
+          <input
+            type="text"
+            placeholder="Search videos..."
+            value={searchQuery}
+            onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+            className="border border-gray-300 dark:border-gray-700 rounded-lg pl-10 pr-4 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 dark:text-gray-200"
+          />
+          <Eye className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex items-center gap-3 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 no-scrollbar">
+          {videoList.length > 0 && (
+            <button
+              onClick={toggleSelectAll}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${selectedVideos.length === videoList.length && videoList.length > 0
+                ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                }`}
+            >
+              {selectedVideos.length === videoList.length && videoList.length > 0 ? (
+                <CheckSquare className="w-5 h-5" />
+              ) : (
+                <Square className="w-5 h-5" />
+              )}
+              <span>{selectedVideos.length === videoList.length ? 'Deselect All' : 'Select All'}</span>
+            </button>
+          )}
+
+          <button
             onClick={() => redirect("/video/add")}
-            className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow whitespace-nowrap"
           >
             <Plus className="h-5 w-5" />
             <span>Add Video</span>
           </button>
+
           <button
             onClick={() => redirect("/video/drafts")}
-            className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors shadow-sm hover:shadow whitespace-nowrap"
           >
             <span>View Drafts</span>
           </button>
@@ -244,90 +389,89 @@ export default function VideoListPage() {
         {videoList.map((video) => (
           <div
             key={video.video_id}
-            className="rounded-lg overflow-hidden shadow-lg border border-gray-100 dark:border-gray-700 hover:shadow-xl transition-shadow bg-white dark:bg-gray-800"
+            onClick={(e) => {
+              // Allow selecting by clicking card background, but avoid conflicting with buttons
+              if (!(e.target as HTMLElement).closest('button') && !(e.target as HTMLElement).closest('.clickable-area')) {
+                toggleSelectVideo(video.video_id);
+              }
+            }}
+            className={`relative rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200 border cursor-pointer group ${selectedVideos.includes(video.video_id)
+              ? 'border-blue-500 ring-2 ring-blue-500 ring-opacity-50 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/10'
+              : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
+              }`}
           >
-            <div className="relative group">
+            {/* Selection Checkbox Overlay */}
+            <div className="absolute top-3 left-3 z-20">
+              <div
+                onClick={(e) => { e.stopPropagation(); toggleSelectVideo(video.video_id); }}
+                className={`w-6 h-6 rounded-md border flex items-center justify-center transition-all shadow-sm ${selectedVideos.includes(video.video_id)
+                  ? 'bg-blue-600 border-blue-600 text-white'
+                  : 'bg-white/90 border-gray-300 hover:border-blue-400 text-transparent dark:bg-gray-800/90 dark:border-gray-600'
+                  }`}>
+                <CheckSquare className="w-4 h-4 pointer-events-none" />
+              </div>
+            </div>
+
+            <div className="relative aspect-video bg-gray-100 dark:bg-gray-900 overflow-hidden">
               <img
-                className="w-full h-48 object-cover"
+                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                 src={video.thumbnail}
                 alt={video.title}
                 referrerPolicy="no-referrer"
               />
-              <span className="absolute bottom-2 right-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded">
+              <span className="absolute bottom-2 right-2 bg-black/80 backdrop-blur-sm text-white text-xs px-2 py-0.5 rounded font-medium">
                 {formatDuration(video.duration)}
               </span>
             </div>
-            <div className="flex items-center justify-center mt-2 space-x-2 bg-gray-100 dark:bg-gray-700 py-2">
-              <button onClick={() => {
-                redirect(`/video/details/${video.slug}`);
-              }} className="p-2 rounded-full bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-gray-700">
-                <Eye className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => {
-                  redirect(`/video/edit/${video.slug}`);
-                }}
-                className="p-2 rounded-full bg-white dark:bg-gray-800 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-100 dark:hover:bg-gray-700"
-              >
-                <Pencil className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => handleDelete(video.video_id)}
-                className="p-2 rounded-full bg-white dark:bg-gray-800 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-gray-700"
-              >
-                <Trash className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => handleDmca(video.video_id, video.is_dmca)}
-                className={`p-2 rounded-full ${video.is_dmca === 1
-                  ? "bg-green-600 text-white hover:bg-green-700"
-                  : "bg-red-600 text-white hover:bg-red-700"
-                  } dark:bg-gray-800 dark:text-red-400 dark:hover:bg-gray-700`}
-              >
-                {video.is_dmca === 1 ? (
-                  <FlagOff className="h-5 w-5 text-white dark:text-red-400" />
-                ) : (
-                  <Flag className="h-5 w-5 text-white dark:text-red-400" />
-                )}
-              </button>
-            </div>
 
-            <div className="px-4 py-1">
-              <div className="font-bold text-lg mb-1 truncate dark:text-white">{video.title}</div>
-              <div className="flex items-center text-gray-500 dark:text-gray-400 text-sm mb-1">
-                <span className="flex gap-1"><Eye className="h-5 w-5" /> {convertNumberToSuffix(video.views)} views</span>
-                <span className="mx-1">•</span>
-                <span className="flex gap-1"><Clock className="h-4 w-4" /> {timeAgo(video.upload_date)}</span>
+            {/* Content Area - Mark buttons as clickable-area to prevent row selection */}
+            <div className="p-4 clickable-area">
+              <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-2 mb-2 leading-tight min-h-[2.5rem]" title={video.title}>
+                {video.title}
+              </h3>
+
+              <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 mb-3 space-x-2">
+                <span className="flex items-center gap-1"><Eye className="w-3 h-3" /> {convertNumberToSuffix(video.views)}</span>
+                <span>•</span>
+                <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {timeAgo(video.upload_date)}</span>
               </div>
 
-              <div className="mt-3">
-                {video.studios.map((studio, index) => (
-                  <span key={index} className="text-sm mr-1">
-                    <Badge variant="solid" color="primary">
-                      {studio}
-                    </Badge>
-                  </span>
+              <div className="flex flex-wrap gap-1 mb-4 h-6 overflow-hidden">
+                {video.studios.slice(0, 2).map((studio, i) => (
+                  <Badge key={i} variant="solid" color="primary" className="text-[10px] px-1.5 py-0.5">{studio}</Badge>
                 ))}
               </div>
-            </div>
 
-            <div className="px-4 pb-3">
-              <div className="flex flex-wrap mb-4 mt-2">
-                {video.pstars?.map((pstar, index) => (
-                  <span
-                    key={index}
-                    className="inline-block bg-gray-100 dark:bg-gray-700 rounded-full px-2 py-1 text-sm font-medium text-gray-700 dark:text-gray-300 mr-1 mb-1"
-                  >
-                    {pstar}
-                  </span>
-                ))}
-              </div>
-              <div className="flex items-center justify-between">
-                <ToggleSwitch
-                  label="Active"
-                  checked={video.is_active === 1}
-                  onChange={(checked) => handleToggle(video.video_id, checked)}
-                />
+              {/* Actions Toolbar */}
+              <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
+                <div className="flex items-center -space-x-1">
+                  <button onClick={(e) => { e.stopPropagation(); redirect(`/video/details/${video.slug}`); }}
+                    className="p-2 rounded-full text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-gray-700 dark:hover:text-blue-400 transition-colors" title="View Details">
+                    <Eye className="w-4 h-4" />
+                  </button>
+                  <button onClick={(e) => { e.stopPropagation(); redirect(`/video/edit/${video.slug}`); }}
+                    className="p-2 rounded-full text-gray-500 hover:text-yellow-600 hover:bg-yellow-50 dark:hover:bg-gray-700 dark:hover:text-yellow-400 transition-colors" title="Edit Video">
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                  <button onClick={(e) => { e.stopPropagation(); handleDelete(video.video_id); }}
+                    className="p-2 rounded-full text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-gray-700 dark:hover:text-red-400 transition-colors" title="Delete Video">
+                    <Trash className="w-4 h-4" />
+                  </button>
+                  <button onClick={(e) => { e.stopPropagation(); handleDmca(video.video_id, video.is_dmca); }}
+                    className={`p-2 rounded-full transition-colors ${video.is_dmca ? 'text-green-600 bg-green-50 dark:bg-green-900/20' : 'text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-gray-700'}`}
+                    title={video.is_dmca ? "Remove DMCA" : "Mark DMCA"}>
+                    {video.is_dmca ? <FlagOff className="w-4 h-4" /> : <Flag className="w-4 h-4" />}
+                  </button>
+                </div>
+
+                <div onClick={(e) => e.stopPropagation()}>
+                  <ToggleSwitch
+                    label=""
+                    size="sm"
+                    checked={video.is_active === 1}
+                    onChange={(checked) => handleToggle(video.video_id, checked)}
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -335,29 +479,107 @@ export default function VideoListPage() {
       </div>
 
       {videoList.length === 0 && (
-        <div className="text-center py-10 dark:text-gray-300">
-          <p className="text-gray-500 dark:text-gray-400">No videos available</p>
+        <div className="flex flex-col items-center justify-center py-20 bg-gray-50 dark:bg-gray-800/50 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 mt-6">
+          <div className="bg-white dark:bg-gray-700 p-4 rounded-full shadow-sm mb-4">
+            <Eye className="h-8 w-8 text-gray-400 dark:text-gray-500" />
+          </div>
+          <p className="text-gray-900 dark:text-white font-medium text-lg">No videos found</p>
+          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Try adjusting your search criteria</p>
+          <button
+            onClick={() => { setSearchQuery(""); setCurrentPage(1); }}
+            className="mt-4 text-blue-600 hover:text-blue-700 font-medium text-sm hover:underline"
+          >
+            Clear Filters
+          </button>
         </div>
       )}
-      <div className="flex justify-center mt-6">
-        <button
-          disabled={currentPage === 1}
-          onClick={() => handlePageChange(currentPage - 1)}
-          className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-l hover:bg-gray-300 dark:hover:bg-gray-600"
-        >
-          Previous
-        </button>
-        <span className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
-          Page {currentPage} of {totalPages}
-        </span>
-        <button
-          disabled={currentPage === totalPages}
-          onClick={() => handlePageChange(currentPage + 1)}
-          className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-r hover:bg-gray-300 dark:hover:bg-gray-600"
-        >
-          Next
-        </button>
-      </div>
+
+      {/* Pagination */}
+      {videoList.length > 0 && totalPages > 1 && (
+        <div className="flex flex-col items-center justify-center mt-10 gap-4">
+          {/* Mobile: Simple Prev/Next */}
+          <div className="md:hidden flex items-center bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-1">
+            <button
+              disabled={currentPage === 1}
+              onClick={() => handlePageChange(currentPage - 1)}
+              className="p-2 text-gray-600 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <span className="px-4 text-sm font-medium text-gray-900 dark:text-white">
+              {currentPage} / {totalPages}
+            </span>
+            <button
+              disabled={currentPage === totalPages}
+              onClick={() => handlePageChange(currentPage + 1)}
+              className="p-2 text-gray-600 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Desktop: Full Pagination */}
+          <div className="hidden md:flex items-center bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-1.5 gap-1">
+            <button
+              disabled={currentPage === 1}
+              onClick={() => handlePageChange(1)}
+              className="p-2 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700/50 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all"
+              title="First Page"
+            >
+              <ChevronsLeft className="w-4 h-4" />
+            </button>
+            <button
+              disabled={currentPage === 1}
+              onClick={() => handlePageChange(currentPage - 1)}
+              className="p-2 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700/50 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all mr-2"
+              title="Previous Page"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-1">
+              {getPaginationRange().map((page, index) => (
+                <React.Fragment key={index}>
+                  {page === '...' ? (
+                    <span className="px-2 text-gray-400 dark:text-gray-500 text-sm">...</span>
+                  ) : (
+                    <button
+                      onClick={() => handlePageChange(page as number)}
+                      className={`min-w-[36px] h-9 px-3 rounded-lg text-sm font-medium transition-all ${currentPage === page
+                        ? 'bg-blue-600 text-white shadow-md shadow-blue-200 dark:shadow-none'
+                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
+                        }`}
+                    >
+                      {page}
+                    </button>
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
+
+            <button
+              disabled={currentPage === totalPages}
+              onClick={() => handlePageChange(currentPage + 1)}
+              className="p-2 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700/50 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all ml-2"
+              title="Next Page"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+            <button
+              disabled={currentPage === totalPages}
+              onClick={() => handlePageChange(totalPages)}
+              className="p-2 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700/50 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all"
+              title="Last Page"
+            >
+              <ChevronsRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="text-xs text-gray-400 dark:text-gray-500 font-medium">
+            Showing page {currentPage} of {totalPages}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

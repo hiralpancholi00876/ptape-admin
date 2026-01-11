@@ -3,37 +3,37 @@ import { Controller, Control, FieldErrors } from "react-hook-form";
 import Select from "react-select/creatable";
 import axios from "@/utils/axios";
 
-interface TagsDetailsProps {
+interface CategoryDetailsProps {
     control: Control<any>;
     errors: FieldErrors<any>;
 }
 
-const TagsDetails: React.FC<TagsDetailsProps> = ({
+const CategoryDetails: React.FC<CategoryDetailsProps> = ({
     control,
     errors,
 }) => {
 
     const [isMounted, setIsMounted] = useState(false);
-    const [tags, setTags] = useState<{ value: string; label: string }[]>([]);
+    const [categories, setCategories] = useState<{ value: string; label: string }[]>([]);
 
-    // Fetch tags from API
+    // Fetch categories from API
     const fetchData = async () => {
         try {
-            let response = await axios.get(`/tags`);
+            let response = await axios.get(`/categories`);
             if (response.data.success) {
-                setTags(
+                setCategories(
                     response.data.data
-                        .map((tag: { name: string }) => ({ value: tag.name, label: tag.name }))
+                        .map((category: { name: string }) => ({ value: category.name, label: category.name }))
                 );
             } else {
-                setTags([]);
+                setCategories([]);
             }
         } catch (error) {
-            setTags([]);
+            setCategories([]);
         }
     };
 
-    // Fetch tags when component mounts
+    // Fetch categories when component mounts
     useEffect(() => {
         setIsMounted(true);
         fetchData();
@@ -46,18 +46,18 @@ const TagsDetails: React.FC<TagsDetailsProps> = ({
     return (
         <div>
             <Controller
-                name="tags"
+                name="categories"
                 control={control}
-                rules={{ required: "Tags is required" }}
+                rules={{ required: "Category is required" }}
                 render={({ field }) => (
                     <>
                         <Select
                             isMulti
-                            instanceId={'tags-select'}
-                            id="tags-select"
-                            name="tags"
-                            inputId="tags-select-input"
-                            options={tags}
+                            instanceId={'categories-select'}
+                            id="categories-select"
+                            name="categories"
+                            inputId="categories-select-input"
+                            options={categories}
                             value={field.value}
                             onChange={(selectedOptions) => {
                                 field.onChange(selectedOptions || []);
@@ -67,9 +67,9 @@ const TagsDetails: React.FC<TagsDetailsProps> = ({
                                 e.stopPropagation();
                             }}
                         />
-                        {errors.tags?.message && (
+                        {errors.categories?.message && (
                             <p className="text-red-500 text-sm mt-1">
-                                {String(errors.tags.message)}
+                                {String(errors.categories.message)}
                             </p>
                         )}
                     </>
@@ -87,4 +87,4 @@ const TagsDetails: React.FC<TagsDetailsProps> = ({
     );
 };
 
-export default TagsDetails;
+export default CategoryDetails;
