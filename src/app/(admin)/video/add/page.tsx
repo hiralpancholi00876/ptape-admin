@@ -8,13 +8,13 @@ import StudioSelect from "@/components/video/StudioSelect";
 import PornstarSelect from "@/components/video/PornstarSelect";
 import PosterFetch from "@/components/video/PosterFetch";
 import ScrapDetails from "@/components/video/ScrapDetails";
-import JsonInput from "@/components/video/JsonInput";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import axios from "@/utils/axios";
 import { useRouter } from "next/navigation";
 import { toUTC } from "@/utils/commonFunc";
 import ToggleSwitch from "@/components/form/switch/Switch";
 import CategoryDetails from '@/components/video/CategoryDetails';
+import { Plus, Save, Film, Wand2, ArrowLeft } from 'lucide-react';
 
 // Define the form data interface
 interface VideoFormData {
@@ -53,42 +53,74 @@ interface VideoFormData {
 
 export default function AddVideo() {
   const router = useRouter();
-  let draftVideoData: any = null;
-  if (typeof window !== 'undefined') {
-    const storedData = localStorage.getItem('selectedVideo');
-    if (storedData) {
-      draftVideoData = JSON.parse(storedData);
-      console.log('Draft Video Data:', draftVideoData);
-      // localStorage.removeItem('selectedVideo'); // Clear after retrieving
-    }
-  }
+  const [isScraping, setIsScraping] = useState(false);
 
   // Set up react-hook-form
-  const { control, handleSubmit, formState: { errors }, setValue, watch } = useForm<VideoFormData>({
+  const { control, handleSubmit, formState: { errors, isSubmitting }, setValue, watch } = useForm<VideoFormData>({
     defaultValues: {
-      title: draftVideoData?.title || '',
+      title: '',
       description: '',
-      meta_title: draftVideoData?.meta_title || '',
-      meta_description: draftVideoData?.meta_description || '',
-      datetime: draftVideoData?.datetime,
-      duration: draftVideoData?.duration || '00:00:00',
-      studios: draftVideoData?.studios ? draftVideoData.studios.map((studio: string) => ({ value: studio, label: studio })) : [],
-      pornstars: draftVideoData?.pornstars ? draftVideoData.pornstars.map((pornstar: string) => ({ value: pornstar, label: pornstar })) : [],
+      meta_title: '',
+      meta_description: '',
+      duration: '00:00:00',
+      studios: [],
+      pornstars: [],
       categories: [],
       thumbnail: 'https://diplo-media.s3.eu-central-1.amazonaws.com/2023/06/default-video-thumbnail.jpg',
       is_active: false,
       videoSources: [{
         id: null,
-        file_size: draftVideoData?.video_sources?.fileSize || null,
+        file_size: null,
         file_type: "mp4",
         quality: "720p",
-        url: "https://stream.rapid-access.cloud/" + draftVideoData?.video_sources?.key
+        url: ""
       }]
     }
   });
 
-  const onSubmit = (data: VideoFormData) => {
+  // Handle LocalStorage Draft Data
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const storedData = localStorage.getItem('selectedVideo');
+      if (storedData) {
+        try {
+          const draftVideoData = JSON.parse(storedData);
+          console.log('Draft Video Data:', draftVideoData);
 
+          if (draftVideoData.title) setValue('title', draftVideoData.title);
+          if (draftVideoData.meta_title) setValue('meta_title', draftVideoData.meta_title);
+          if (draftVideoData.meta_description) setValue('meta_description', draftVideoData.meta_description);
+          if (draftVideoData.datetime) setValue('datetime', draftVideoData.datetime);
+          if (draftVideoData.duration) setValue('duration', draftVideoData.duration);
+
+          if (draftVideoData.studios) {
+            const studios = draftVideoData.studios.map((studio: string) => ({ value: studio, label: studio }));
+            setValue('studios', studios);
+          }
+          if (draftVideoData.pornstars) {
+            const pornstars = draftVideoData.pornstars.map((pornstar: string) => ({ value: pornstar, label: pornstar }));
+            setValue('pornstars', pornstars);
+          }
+
+          if (draftVideoData.video_sources) {
+            setValue('videoSources', [{
+              id: null,
+              file_size: draftVideoData?.video_sources?.fileSize || null,
+              file_type: "mp4",
+              quality: "720p",
+              url: "https://stream.rapid-access.cloud/" + draftVideoData?.video_sources?.key
+            }]);
+          }
+
+          // localStorage.removeItem('selectedVideo'); // Optional: Clear after retrieving
+        } catch (e) {
+          console.error("Error parsing local storage video data", e);
+        }
+      }
+    }
+  }, [setValue]);
+
+  const onSubmit = async (data: VideoFormData) => {
     let sendData = {
       title: data.title,
       description: data.description || null,
@@ -109,148 +141,212 @@ export default function AddVideo() {
       })) || []
     }
 
-    axios.post('/add-video', sendData).then(response => {
+    try {
+      const response = await axios.post('/add-video', sendData);
       if (response.data.success) {
         Swal.fire({
           title: 'Success',
           text: 'Video added successfully!',
           icon: 'success',
-          confirmButtonText: 'OK'
+          confirmButtonColor: '#2563eb',
+          timer: 2000,
         }).then(() => {
           router.push("/video/list");
         });
       } else {
-        Swal.fire({
-          title: 'Error',
-          text: response.data.message || 'Failed to add video',
-          icon: 'error',
-          confirmButtonText: 'OK'
-        });
+        throw new Error(response.data.message || 'Failed to add video');
       }
-    }).catch(error => {
+    } catch (error: any) {
       Swal.fire({
         title: 'Error',
-        text: 'Failed to add video',
+        text: error.message || 'Failed to add video',
         icon: 'error',
-        confirmButtonText: 'OK'
+        confirmButtonColor: '#dc2626'
       });
-    });
+    }
   };
 
   // Handler for scraped video data
   const handleScrapedData = (data: any) => {
     if (data) {
-      // Populate form fields with scraped data
-      if (data.title) setValue('title', data.title);
-      if (data.description) setValue('description', data.description);
-      if (data.thumbnail) setValue('thumbnail', data.thumbnail);
-      if (data.duration) setValue('duration', data.duration);
-      if (data.datetime) setValue('datetime', data.datetime);
-      if (data.meta_title) setValue('meta_title', data.meta_title);
-      if (data.meta_description) setValue('meta_description', data.meta_description);
+      setIsScraping(true);
+      // Simulate a small delay for better UX feeling of "populating"
+      setTimeout(() => {
+        if (data.title) setValue('title', data.title);
+        if (data.description) setValue('description', data.description);
+        if (data.thumbnail) setValue('thumbnail', data.thumbnail);
+        if (data.duration) setValue('duration', data.duration);
+        if (data.datetime) setValue('datetime', data.datetime);
+        if (data.meta_title) setValue('meta_title', data.meta_title);
+        if (data.meta_description) setValue('meta_description', data.meta_description);
 
-      // Handle studios if available
-      if (data.studios && Array.isArray(data.studios)) {
-        const studioOptions = data.studios.map((studio: any) => ({
-          value: studio,
-          label: studio
-        }));
-        setValue('studios', studioOptions);
-      }
+        if (data.studios && Array.isArray(data.studios)) {
+          setValue('studios', data.studios.map((studio: any) => ({ value: studio, label: studio })));
+        }
 
-      // Handle pornstars if available
-      if (data.pornstars && Array.isArray(data.pornstars)) {
-        const pornstarOptions = data.pornstars.map((pornstar: any) => ({
-          value: pornstar,
-          label: pornstar
-        }));
-        setValue('pornstars', pornstarOptions);
-      }
+        if (data.pornstars && Array.isArray(data.pornstars)) {
+          setValue('pornstars', data.pornstars.map((pornstar: any) => ({ value: pornstar, label: pornstar })));
+        }
 
-      // Handle tags if available
-      if (data.categories && Array.isArray(data.categories)) {
-        const categoryOptions = data.categories.map((category: any) => ({
-          value: category,
-          label: category
-        }));
-        setValue('categories', categoryOptions);
-      }
+        if (data.categories && Array.isArray(data.categories)) {
+          setValue('categories', data.categories.map((category: any) => ({ value: category, label: category })));
+        }
 
-      // Handle video sources if available
-      if (data.videoSources && Array.isArray(data.videoSources)) {
-        setValue('videoSources', data.videoSources);
-      }
+        if (data.videoSources && Array.isArray(data.videoSources)) {
+          setValue('videoSources', data.videoSources);
+        }
 
-      // Show success message
-      Swal.fire({
-        title: 'Success',
-        text: 'Video details have been fetched and populated!',
-        icon: 'success',
-        confirmButtonText: 'OK'
-      });
+        setIsScraping(false);
+        Swal.fire({
+          title: 'Imported!',
+          text: 'Video details have been imported successfully.',
+          icon: 'success',
+          timer: 1500,
+          showConfirmButton: false,
+          position: 'top-end',
+          toast: true
+        });
+      }, 500);
     }
   };
 
   return (
-    <div>
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-          <div className="space-y-6">
-            <ComponentCard title="Video Details">
-              <VideoDetailsInputs control={control} errors={errors} />
-              <Controller
-                name="is_active"
-                control={control}
-                render={({ field }) => (
-                  <ToggleSwitch
-                    label="Is Active"
-                    checked={field.value}
-                    onChange={field.onChange}
-                  />
-                )}
-              />
-            </ComponentCard>
+    <div className="min-h-screen bg-gray-50/50 dark:bg-gray-900/50 p-6 pb-20">
+      <div className="max-w-[1920px] mx-auto space-y-6">
 
-            <ComponentCard title="Studio Details">
-              <StudioSelect control={control} />
-            </ComponentCard>
-
-            <ComponentCard title="Pornstar Details">
-              <PornstarSelect control={control} errors={errors} />
-            </ComponentCard>
-
-            <ComponentCard title="Category Details">
-              <CategoryDetails control={control} errors={errors} />
-            </ComponentCard>
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700/50">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => router.push("/video/list")}
+              className="p-2 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              title="Go Back"
+            >
+              <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 bg-clip-text text-transparent flex items-center gap-2">
+                <Film className="w-7 h-7 text-blue-600" />
+                Add New Video
+              </h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Create a new video entry by filling out the form or scraping data
+              </p>
+            </div>
           </div>
 
-          <div className="space-y-6">
-            <ComponentCard title="Poster Details">
-              <PosterFetch control={control} errors={errors} watch={watch} />
-            </ComponentCard>
-
-            <ComponentCard title="Video Sources">
-              <VideoSourceManager
-                control={control}
-                name="videoSources"
-              />
-            </ComponentCard>
-
-            <ComponentCard title="Fetch Video Details">
-              <ScrapDetails onDataReceived={handleScrapedData} />
-            </ComponentCard>
-            {/* <ComponentCard title="Json Input">
-              <JsonInput onDataReceived={handleScrapedData} />
-            </ComponentCard> */}
+          <div className="flex gap-3">
+            <button
+              onClick={handleSubmit(onSubmit)}
+              disabled={isSubmitting}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-medium shadow-lg shadow-blue-600/20 hover:shadow-blue-600/30 transition-all duration-200 active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? (
+                <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <Save className="w-5 h-5" />
+              )}
+              <span>Save Video</span>
+            </button>
           </div>
         </div>
-        <button
-          type="submit"
-          className="ml-2 bg-blue-600 text-white px-4 mt-3 py-2 rounded hover:bg-blue-700 transition-colors"
-        >
-          Submit
-        </button>
-      </form>
+
+        <form onSubmit={handleSubmit(onSubmit)} className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+
+            {/* Left Column - Main Details */}
+            <div className="xl:col-span-8 space-y-6">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                <div className="border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 px-6 py-4">
+                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">Metadata & Basic Info</h3>
+                </div>
+                <div className="p-6">
+                  <VideoDetailsInputs control={control} errors={errors} />
+
+                  <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-700">
+                    <Controller
+                      name="is_active"
+                      control={control}
+                      render={({ field }) => (
+                        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl">
+                          <div>
+                            <span className="block font-medium text-gray-900 dark:text-white">Publication Status</span>
+                            <span className="text-sm text-gray-500">Enable to make this video publicly visible</span>
+                          </div>
+                          <ToggleSwitch
+                            label=""
+                            checked={field.value}
+                            onChange={field.onChange}
+                          />
+                        </div>
+                      )}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Categorization Section - Grouped */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+                  <h3 className="font-semibold mb-4 text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                    Studio Information
+                  </h3>
+                  <StudioSelect control={control} />
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+                  <h3 className="font-semibold mb-4 text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                    Cast / Pornstars
+                  </h3>
+                  <PornstarSelect control={control} errors={errors} />
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+                <h3 className="font-semibold mb-4 text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                  Categories & Tags
+                </h3>
+                <CategoryDetails control={control} errors={errors} />
+              </div>
+            </div>
+
+            {/* Right Column - Media & Tools */}
+            <div className="xl:col-span-4 space-y-6">
+
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                <div className="p-4 border-b border-gray-100 dark:border-gray-700 font-medium">Poster / Thumbnail</div>
+                <div className="p-6">
+                  <PosterFetch control={control} errors={errors} watch={watch} />
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                <div className="p-4 border-b border-gray-100 dark:border-gray-700 font-medium">Video Sources</div>
+                <div className="p-6">
+                  <VideoSourceManager
+                    control={control}
+                    name="videoSources"
+                  />
+                </div>
+              </div>
+              {/* Scrap Tool */}
+              <div className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/10 dark:to-blue-900/10 rounded-2xl shadow-sm border border-indigo-100 dark:border-indigo-900/30 p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg text-indigo-600 dark:text-indigo-400">
+                    <Wand2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-900 dark:text-gray-100">Auto-Import Data</h3>
+                    <p className="text-xs text-gray-500">Fetch details from external URL</p>
+                  </div>
+                </div>
+                <ScrapDetails onDataReceived={handleScrapedData} />
+              </div>
+
+            </div>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
