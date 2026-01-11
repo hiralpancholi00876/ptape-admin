@@ -2,8 +2,8 @@
 import axios from 'axios';
 
 const axiosInstance = axios.create({
-    // baseURL: 'http://193.233.202.172:5551/api/v1/admin/', // Set base URL here
-    baseURL: 'http://localhost:5551/api/v1/admin/',
+    baseURL: 'http://109.199.120.152:5551/api/v1/admin/', // Set base URL here
+    // baseURL: 'http://localhost:5551/api/v1/admin/',
     timeout: 30000,
     headers: {
         'Content-Type': 'application/json'

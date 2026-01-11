@@ -738,3 +738,8 @@ span.flatpickr-weekday,
   opacity: 0.8;
   cursor: grabbing; /* Changes the cursor to indicate dragging */
 }
+
+/* SweetAlert on top of modals */
+.swal-on-top {
+  z-index: 99999 !important;
+}

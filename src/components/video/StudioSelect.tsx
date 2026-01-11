@@ -9,6 +9,7 @@ interface StudioSelectProps {
 
 const StudioSelect: React.FC<StudioSelectProps> = ({ control }) => {
 
+    const [isMounted, setIsMounted] = useState(false);
     const [studios, setStudios] = useState<{ value: string; label: string }[]>([]);
 
     // Fetch channels from API
@@ -27,8 +28,13 @@ const StudioSelect: React.FC<StudioSelectProps> = ({ control }) => {
 
     // Fetch studio when component mounts
     useEffect(() => {
+        setIsMounted(true);
         fetchData();
     }, []);
+
+    if (!isMounted) {
+        return <div className="h-[38px] bg-gray-100 rounded animate-pulse" />;
+    }
 
     return (
         <div>

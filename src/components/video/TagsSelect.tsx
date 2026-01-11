@@ -13,6 +13,7 @@ const TagsDetails: React.FC<TagsDetailsProps> = ({
     errors,
 }) => {
 
+    const [isMounted, setIsMounted] = useState(false);
     const [tags, setTags] = useState<{ value: string; label: string }[]>([]);
 
     // Fetch tags from API
@@ -34,8 +35,13 @@ const TagsDetails: React.FC<TagsDetailsProps> = ({
 
     // Fetch tags when component mounts
     useEffect(() => {
+        setIsMounted(true);
         fetchData();
     }, []);
+
+    if (!isMounted) {
+        return <div className="h-[38px] bg-gray-100 rounded animate-pulse" />;
+    }
 
     return (
         <div>

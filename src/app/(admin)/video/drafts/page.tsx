@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Plus, RefreshCw, Trash2, Search, Upload } from 'lucide-react';
+import { Plus, RefreshCw, Trash2, Search, Upload, Video, Cloud } from 'lucide-react';
 // Import the new modal component
 import { VideoSelectModal } from './VideoSelectModal'; // Assuming it's in the same folder
 import { RemoteUploadModal } from './RemoteUploadModal';
@@ -18,6 +18,10 @@ interface Video {
     datetime?: string;
     status: string | undefined;
     scrap_data: any;
+    upload_status: string | 'pending';
+    webhook_data: any;
+    job_id: string | undefined; // remote upload job ID
+    id: number; // draft_video_id
 }
 
 interface ApiResponse<T> {
@@ -83,8 +87,36 @@ export default function DirectUploadPage() {
     };
 
     const handleAddVideo = (video: Video) => {
-        localStorage.setItem('selectedVideo', JSON.stringify(video?.scrap_data));
+        localStorage.setItem('selectedVideo', JSON.stringify({ 
+            ...video?.scrap_data, 
+            video_sources:  video.webhook_data?.r2_data || {}
+        }));
         router.push('/video/add');
+    };
+
+    const handleRemoteUpload = async (video: Video) => {
+        Swal.fire({
+            title: 'Start Remote Upload?',
+            text: 'This will queue the video for remote upload to S3.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#9333ea',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Yes, upload it!'
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                try {
+                    await axios.post('/add-to-remote-upload', {
+                        link: video.link,
+                        id: video.id
+                    });
+                    Swal.fire('Success', 'Remote upload job added successfully.', 'success');
+                    fetchMainVideos(); // Refresh to get updated status
+                } catch (error) {
+                    Swal.fire('Error', 'Failed to add remote upload job.', 'error');
+                }
+            }
+        });
     };
 
     return (
@@ -99,6 +131,10 @@ export default function DirectUploadPage() {
                     >
                         <RefreshCw className="h-5 w-5" />
                     </button>
+                    <button onClick={openModal} className="mt-2 flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                        <Plus className="h-5 w-5" />
+                        <span>Add Video</span>
+                    </button>
                     <button 
                         onClick={openRemoteUploadModal} 
                         className="mt-2 flex items-center space-x-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
@@ -106,58 +142,95 @@ export default function DirectUploadPage() {
                         <Upload className="h-5 w-5" />
                         <span>Remote Upload</span>
                     </button>
-                    <button onClick={openModal} className="mt-2 flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
-                        <Plus className="h-5 w-5" />
-                        <span>Add Video</span>
-                    </button>
                 </div>
             </div>
 
             {/* Video Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-3 gap-4 sm:gap-6">
                 {/* Main page videos */}
                 {mainVideos.map((video, index) => (
                     <div
-                        key={index} // --- FIX: Always use unique ID
-                        className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
+                        key={video.id || index}
+                        className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden hover:shadow-md transition-all duration-200 group"
                     >
-                        <div className="aspect-video bg-gray-200 relative">
+                        {/* Thumbnail with overlay */}
+                        <div className="aspect-video bg-gray-100 dark:bg-gray-700 relative overflow-hidden">
                             <img
                                 src={video.thumbnail}
                                 alt={video.title}
-                                className="w-full h-full object-cover"
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                             />
                         </div>
-                        <div className="p-4">
-                            <h3 className="font-semibold text-gray-900 truncate">{video.title}</h3>
-                            <p className="text-sm text-gray-600">{timeAgo(video.datetime)}</p>
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${video.status === 'done' ? 'bg-green-100 text-green-800' :
-                                video.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                    'bg-gray-100 text-gray-800'
-                                }`}>
-                                {video.status}
-                            </span>
-                            <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100">
+
+                        {/* Content */}
+                        <div className="p-3 sm:p-4">
+                            <h3 className="font-medium text-gray-900 dark:text-gray-100 text-sm sm:text-base line-clamp-2 leading-tight mb-2" title={video.title}>
+                                {video.title}
+                            </h3>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                                {timeAgo(video.datetime)}
+                            </p>
+
+                            {/* Status badges */}
+                            <div className="flex flex-wrap items-center gap-2 mb-3">
+                                <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium shadow-sm ${
+                                    video.status === 'done' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' :
+                                    video.status === 'pending' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400' :
+                                    'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400'
+                                }`} title="Video Status">
+                                    <Video size={12} />
+                                    {video.status}
+                                </span>
+                                {video.upload_status && (
+                                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium shadow-sm ${
+                                        video.upload_status === 'completed' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' :
+                                        video.upload_status === 'failed' ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400' :
+                                        video.upload_status === 'downloading' || video.upload_status === 'uploading' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400' :
+                                        video.upload_status === 'pending' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400' :
+                                        'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400'
+                                    }`} title="Upload Status">
+                                        <Cloud size={12} />
+                                        {video.upload_status}
+                                    </span>
+                                )}
+                            </div>
+
+                            {/* Action buttons */}
+                            <div className="flex items-center gap-2">
+                                {video.status === 'done' && (
+                                    <button
+                                        onClick={() => handleAddVideo(video)}
+                                        className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+                                        title="Add Video"
+                                    >
+                                        <Plus size={14} className="text-blue-600 dark:text-blue-400" />
+                                        <span className="text-xs font-medium text-blue-600 dark:text-blue-400 hidden sm:inline">Add</span>
+                                    </button>
+                                )}
+                                {video.status === 'done' && (video.upload_status === 'pending') && (
+                                    <button
+                                        onClick={() => handleRemoteUpload(video)}
+                                        className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-purple-50 dark:bg-purple-900/30 hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors"
+                                        title="Remote Upload"
+                                    >
+                                        <Upload size={14} className="text-purple-600 dark:text-purple-400" />
+                                        <span className="text-xs font-medium text-purple-600 dark:text-purple-400 hidden sm:inline">Upload</span>
+                                    </button>
+                                )}
                                 <button
-                                    onClick={() => handleAddVideo(video)} // --- FIX: Pass ID
-                                    className="flex-1 flex items-center justify-center gap-2 p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
+                                    onClick={() => window.open(`https://www.google.com/search?tbm=isch&q=${video.title}`, '_blank')}
+                                    className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors"
+                                    title="Search Images"
                                 >
-                                    <Plus size={16} className="text-gray-600" />
-                                    <span className="text-sm text-gray-600">Add</span>
+                                    <Search size={14} className="text-emerald-600 dark:text-emerald-400" />
+                                    <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 hidden sm:inline">Search</span>
                                 </button>
                                 <button
-                                    onClick={() => handleDeleteVideo(video.link)} // --- FIX: Pass ID
-                                    className="flex-1 flex items-center justify-center gap-2 p-2 rounded-lg bg-red-50 hover:bg-red-100 transition-colors"
+                                    onClick={() => handleDeleteVideo(video.link)}
+                                    className="flex items-center justify-center p-2 rounded-lg bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
+                                    title="Delete"
                                 >
-                                    <Trash2 size={16} className="text-red-500" />
-                                    <span className="text-sm text-red-500">Delete</span>
-                                </button>
-                                <button
-                                    onClick={() => window.open(`https://www.google.com/search?tbm=isch&q=${video.title}`, '_blank')} // --- FIX: Pass ID
-                                    className="flex-1 flex items-center justify-center gap-2 p-2 rounded-lg bg-green-50 hover:bg-green-100 transition-colors"
-                                >
-                                    <Search size={16} className="text-green-500" />
-                                    <span className="text-sm text-green-500">Search</span>
+                                    <Trash2 size={14} className="text-red-500 dark:text-red-400" />
                                 </button>
                             </div>
                         </div>

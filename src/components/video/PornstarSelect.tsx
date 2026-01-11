@@ -10,6 +10,7 @@ interface PornstarDetailsProps {
 
 const PornstarDetails: React.FC<PornstarDetailsProps> = ({ control, errors }) => {
 
+    const [isMounted, setIsMounted] = useState(false);
     const [pornstars, setPornstars] = useState<{ value: string; label: string }[]>([]);
 
     // Fetch pstar from API
@@ -28,8 +29,13 @@ const PornstarDetails: React.FC<PornstarDetailsProps> = ({ control, errors }) =>
 
     // Fetch pstar when component mounts
     useEffect(() => {
+        setIsMounted(true);
         fetchData();
     }, []);
+
+    if (!isMounted) {
+        return <div className="h-[38px] bg-gray-100 rounded animate-pulse" />;
+    }
 
     return (
         <div>

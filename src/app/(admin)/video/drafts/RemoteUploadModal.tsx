@@ -3,9 +3,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Modal } from "@/components/ui/modal";
 import Button from "@/components/ui/button/Button";
-import { X, Loader2, Trash2, RefreshCw, AlertCircle, CheckCircle2, Clock, Upload } from 'lucide-react';
+import { X, Loader2, Trash2, RefreshCw, AlertCircle, CheckCircle2, Clock, Upload, AlertTriangle } from 'lucide-react';
+import Swal from 'sweetalert2';
 
-const REMOTE_UPLOAD_BASE_URL = 'http://localhost:3001';
+const REMOTE_UPLOAD_BASE_URL = 'http://109.199.120.152:3001';
 
 interface RemoteJob {
     id: number;
@@ -15,6 +16,7 @@ interface RemoteJob {
     r2_data: Record<string, unknown> | null;
     status: 'pending' | 'downloading' | 'uploading' | 'completed' | 'failed';
     error_message: string | null;
+    video_title: string | null;
     created_at: string;
     updated_at: string;
 }
@@ -35,8 +37,8 @@ export function RemoteUploadModal({ isOpen, onClose }: RemoteUploadModalProps) {
     const [queueStatus, setQueueStatus] = useState<QueueStatus | null>(null);
 
     // --- Remote Upload API Functions ---
-    const fetchJobs = useCallback(async () => {
-        setIsLoadingJobs(true);
+    const fetchJobs = useCallback(async (showLoader = true) => {
+        if (showLoader) setIsLoadingJobs(true);
         try {
             const response = await fetch(`${REMOTE_UPLOAD_BASE_URL}/list-jobs`);
             const data = await response.json();
@@ -46,7 +48,7 @@ export function RemoteUploadModal({ isOpen, onClose }: RemoteUploadModalProps) {
         } catch (error) {
             console.error('Error fetching jobs:', error);
         } finally {
-            setIsLoadingJobs(false);
+            if (showLoader) setIsLoadingJobs(false);
         }
     }, []);
 
@@ -63,34 +65,99 @@ export function RemoteUploadModal({ isOpen, onClose }: RemoteUploadModalProps) {
     }, []);
 
     const deleteJob = async (jobId: number) => {
-        try {
-            const response = await fetch(`${REMOTE_UPLOAD_BASE_URL}/delete-job/${jobId}`, {
-                method: 'DELETE'
-            });
-            const data = await response.json();
-            if (data.successCode === 200) {
-                fetchJobs();
-                fetchQueueStatus();
+        Swal.fire({
+            title: 'Delete Job?',
+            text: 'Are you sure you want to delete this job?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Yes, delete it!',
+            customClass: {
+                container: 'swal-on-top'
             }
-        } catch (error) {
-            console.error('Error deleting job:', error);
-        }
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                try {
+                    const response = await fetch(`${REMOTE_UPLOAD_BASE_URL}/delete-job/${jobId}`, {
+                        method: 'DELETE'
+                    });
+                    const data = await response.json();
+                    if (data.successCode === 200) {
+                        Swal.fire('Deleted!', 'Job has been deleted.', 'success');
+                        fetchJobs();
+                        fetchQueueStatus();
+                    }
+                } catch (error) {
+                    console.error('Error deleting job:', error);
+                    Swal.fire('Error', 'Failed to delete job.', 'error');
+                }
+            }
+        });
     };
 
     const deleteAllJobs = async () => {
-        if (!confirm('Are you sure you want to delete all jobs?')) return;
-        try {
-            const response = await fetch(`${REMOTE_UPLOAD_BASE_URL}/delete-jobs`, {
-                method: 'DELETE'
-            });
-            const data = await response.json();
-            if (data.successCode === 200) {
-                setJobs([]);
-                fetchQueueStatus();
+        Swal.fire({
+            title: 'Delete All Jobs?',
+            text: 'Are you sure you want to delete all jobs? This action cannot be undone.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Yes, delete all!',
+            customClass: {
+                container: 'swal-on-top'
             }
-        } catch (error) {
-            console.error('Error deleting all jobs:', error);
-        }
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                try {
+                    const response = await fetch(`${REMOTE_UPLOAD_BASE_URL}/delete-jobs`, {
+                        method: 'DELETE'
+                    });
+                    const data = await response.json();
+                    if (data.successCode === 200) {
+                        Swal.fire('Deleted!', 'All jobs have been deleted.', 'success');
+                        setJobs([]);
+                        fetchQueueStatus();
+                    }
+                } catch (error) {
+                    console.error('Error deleting all jobs:', error);
+                    Swal.fire('Error', 'Failed to delete jobs.', 'error');
+                }
+            }
+        });
+    };
+
+    const hardDeleteJob = async (jobId: number) => {
+        Swal.fire({
+            title: 'Hard Delete Job?',
+            text: 'This will permanently delete this job and cannot be undone!',
+            icon: 'error',
+            showCancelButton: true,
+            confirmButtonColor: '#dc2626',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Yes, hard delete!',
+            customClass: {
+                container: 'swal-on-top'
+            }
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                try {
+                    const response = await fetch(`${REMOTE_UPLOAD_BASE_URL}/hard-delete-job/${jobId}`, {
+                        method: 'DELETE'
+                    });
+                    const data = await response.json();
+                    if (data.successCode === 200) {
+                        Swal.fire('Hard Deleted!', 'Job has been permanently deleted.', 'success');
+                        fetchJobs();
+                        fetchQueueStatus();
+                    }
+                } catch (error) {
+                    console.error('Error hard deleting job:', error);
+                    Swal.fire('Error', 'Failed to hard delete job.', 'error');
+                }
+            }
+        });
     };
 
     const getStatusIcon = (status: RemoteJob['status']) => {
@@ -129,9 +196,9 @@ export function RemoteUploadModal({ isOpen, onClose }: RemoteUploadModalProps) {
         if (isOpen) {
             fetchJobs();
             fetchQueueStatus();
-            // Poll for updates every 5 seconds
+            // Poll for updates every 5 seconds (without showing loader)
             const interval = setInterval(() => {
-                fetchJobs();
+                fetchJobs(false);
                 fetchQueueStatus();
             }, 5000);
             return () => clearInterval(interval);
@@ -243,6 +310,9 @@ export function RemoteUploadModal({ isOpen, onClose }: RemoteUploadModalProps) {
                                                     </span>
                                                 </div>
                                                 <p className="text-sm text-gray-700 truncate font-mono">
+                                                    {job.video_title || 'Processing...'}
+                                                </p>
+                                                <p className="text-xs text-gray-500 truncate mt-1">
                                                     {job.filename || 'Processing...'}
                                                 </p>
                                                 <p className="text-xs text-gray-500 truncate mt-1">
@@ -254,16 +324,25 @@ export function RemoteUploadModal({ isOpen, onClose }: RemoteUploadModalProps) {
                                                     </p>
                                                 )}
                                                 <p className="text-xs text-gray-400 mt-1">
-                                                    Draft ID: {job.draft_video_id} • Created: {new Date(job.created_at).toLocaleString()}
+                                                    Created: {new Date(job.created_at).toLocaleString()}
                                                 </p>
                                             </div>
-                                            <button
-                                                onClick={() => deleteJob(job.id)}
-                                                className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-                                                title="Delete Job"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    onClick={() => deleteJob(job.id)}
+                                                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                                                    title="Delete Job"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => hardDeleteJob(job.id)}
+                                                    className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-100 rounded transition-colors"
+                                                    title="Hard Delete Job"
+                                                >
+                                                    <AlertTriangle className="w-4 h-4" />
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 ))}

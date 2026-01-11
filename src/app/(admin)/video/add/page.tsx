@@ -42,7 +42,7 @@ interface VideoFormData {
   is_active: boolean;
 
   videoSources: {
-    id: string;
+    id: string | null;
     file_size: number | null;
     file_type: string | null;
     quality: string | null;
@@ -58,7 +58,8 @@ export default function AddVideo() {
     const storedData = localStorage.getItem('selectedVideo');
     if (storedData) {
       draftVideoData = JSON.parse(storedData);
-      localStorage.removeItem('selectedVideo'); // Clear after retrieving
+      console.log('Draft Video Data:', draftVideoData);
+      // localStorage.removeItem('selectedVideo'); // Clear after retrieving
     }
   }
 
@@ -76,6 +77,13 @@ export default function AddVideo() {
       tags: [],
       thumbnail: 'https://diplo-media.s3.eu-central-1.amazonaws.com/2023/06/default-video-thumbnail.jpg',
       is_active: false,
+      videoSources: [{
+        id: null,
+        file_size: draftVideoData?.video_sources?.fileSize || null,
+        file_type: "mp4",
+        quality: "720p",
+        url: "https://stream.rapid-access.cloud/" + draftVideoData?.video_sources?.key
+      }]
     }
   });
 
