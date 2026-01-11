@@ -112,12 +112,12 @@ const AppSidebar: React.FC = () => {
                 onClick={() => handleSubmenuToggle(index, menuType)}
                 className={`w-full group flex items-center px-3 py-2.5 rounded-xl transition-all duration-200 outline-none
                   ${isMenuOpen
-                    ? "bg-blue-50/80 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
+                    ? "bg-brand-50/80 text-brand-600 dark:bg-brand-900/20 dark:text-brand-400"
                     : "text-gray-500 hover:text-gray-900 hover:bg-gray-100/80 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-800/80"
                   }
                   ${!isExpanded && !isHovered ? "justify-center" : ""}`}
               >
-                <span className={`transition-colors duration-200 ${isMenuOpen ? "text-blue-600 dark:text-blue-400" : "text-current"}`}>
+                <span className={`transition-colors duration-200 ${isMenuOpen ? "text-brand-600 dark:text-brand-400" : "text-current"}`}>
                   {nav.icon}
                 </span>
 
@@ -136,7 +136,7 @@ const AppSidebar: React.FC = () => {
                   href={nav.path}
                   className={`w-full group flex items-center px-3 py-2.5 rounded-xl transition-all duration-200 outline-none
                     ${isLinkActive
-                      ? "bg-blue-600 text-white shadow-md shadow-blue-500/20 dark:shadow-none"
+                      ? "bg-brand-600 text-white shadow-md shadow-brand-500/20 dark:shadow-none"
                       : "text-gray-500 hover:text-gray-900 hover:bg-gray-100/80 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-800/80"
                     }
                     ${!isExpanded && !isHovered ? "justify-center" : ""}`}
@@ -168,8 +168,8 @@ const AppSidebar: React.FC = () => {
                       <Link
                         href={subItem.path}
                         className={`flex items-center px-3 py-2 rounded-lg text-sm transition-colors duration-200
-                          ${isActive(subItem.path)
-                            ? "text-blue-600 bg-blue-50 font-medium dark:text-blue-400 dark:bg-blue-900/10"
+						${isActive(subItem.path)
+                            ? "text-brand-600 bg-brand-50 font-medium dark:text-brand-400 dark:bg-brand-900/10"
                             : "text-gray-500 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-800/50"
                           }`}
                       >
@@ -216,10 +216,10 @@ const AppSidebar: React.FC = () => {
               <h1 className="text-2xl font-black tracking-tight text-gray-900 dark:text-white leading-none">
                 PTape
               </h1>
-              <span className="text-[10px] font-medium text-blue-600 dark:text-blue-400 uppercase tracking-widest ml-0.5">Admin Panel</span>
+              <span className="text-[10px] font-medium text-brand-600 dark:text-brand-400 uppercase tracking-widest ml-0.5">Admin Panel</span>
             </div>
           ) : (
-            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-600/20">
+            <div className="w-10 h-10 rounded-xl bg-brand-600 flex items-center justify-center shadow-lg shadow-brand-600/20">
               <span className="text-white font-bold text-xl">P</span>
             </div>
           )}

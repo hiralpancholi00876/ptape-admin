@@ -55,7 +55,7 @@ const AppHeader: React.FC = () => {
 
           {/* Mobile Logo */}
           <Link href="/" className="lg:hidden flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shadow-md shadow-blue-600/20">
+            <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center shadow-md shadow-brand-600/20">
               <span className="text-white font-bold text-lg">P</span>
             </div>
             <span className="text-lg font-bold text-gray-900 dark:text-white">PTape</span>
@@ -73,7 +73,7 @@ const AppHeader: React.FC = () => {
         {/* Desktop/Expanded Menu Area */}
         <div className={`${isApplicationMenuOpen ? "flex" : "hidden"} 
             lg:flex flex-col lg:flex-row items-center w-full lg:w-auto gap-4 px-4 py-4 lg:p-0 
-            bg-white lg:bg-transparent dark:bg-gray-900 lg:dark:bg-transparent 
+            bg-white/95 backdrop-blur-xl lg:bg-transparent dark:bg-gray-900/95 lg:dark:bg-transparent 
             border-b lg:border-none border-gray-100 dark:border-gray-800 
             lg:ml-auto transition-all duration-300 ease-in-out`}>
 
