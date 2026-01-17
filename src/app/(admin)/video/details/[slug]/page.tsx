@@ -14,8 +14,6 @@ import {
     Star,
     CheckCircle,
     XCircle,
-    FileVideo,
-    HardDrive,
     Calendar,
     ArrowLeft,
     Share2,
@@ -33,6 +31,8 @@ export default function ViewVideoPage({
     const router = useRouter();
     const [videoDetails, setVideoDetails] = useState<any>({});
     const [loading, setLoading] = useState<boolean>(true);
+    const [isPlaying, setIsPlaying] = useState<boolean>(false);
+    const [activeSource, setActiveSource] = useState<any>(null);
 
     async function fetchVideoDetails(slug: string) {
         try {
@@ -41,6 +41,12 @@ export default function ViewVideoPage({
 
             if (response.data.success) {
                 setVideoDetails(response.data.data);
+                // Set default source if available
+                if (response.data.data.videoSources && response.data.data.videoSources.length > 0) {
+                    // Try to find a source that is active, or default to the first one
+                    const defaultSource = response.data.data.videoSources.find((s: any) => s.is_active) || response.data.data.videoSources[0];
+                    setActiveSource(defaultSource);
+                }
             } else {
                 router.push('/video/list');
             }
@@ -50,6 +56,16 @@ export default function ViewVideoPage({
             setLoading(false);
         }
     }
+
+    const handlePlay = (source?: any) => {
+        if (source) {
+            setActiveSource(source);
+        } else if (!activeSource && videoDetails.videoSources?.length) {
+            // If no source is active but we have sources, pick the first one
+            setActiveSource(videoDetails.videoSources[0]);
+        }
+        setIsPlaying(true);
+    };
 
     React.useEffect(() => {
         params.then((resolvedParams) => {
@@ -112,22 +128,48 @@ export default function ViewVideoPage({
                     <div className="xl:col-span-8 space-y-8">
 
                         {/* Thumbnail/Player Card */}
-                        <div className="bg-white dark:bg-gray-800 rounded-3xl p-1.5 shadow-xl shadow-gray-200/50 dark:shadow-black/20 border border-gray-100 dark:border-gray-700">
-                            <div className="relative aspect-video rounded-2xl overflow-hidden bg-black group">
-                                <img
-                                    src={videoDetails.thumbnail}
-                                    alt={videoDetails.title}
-                                    className="w-full h-full object-cover opacity-90 group-hover:opacity-60 transition-opacity duration-300"
-                                />
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                    <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300 cursor-pointer">
-                                        <MonitorPlay className="w-8 h-8 text-white fill-white" />
+                        <div className="bg-white dark:bg-gray-800 rounded-3xl p-1.5 shadow-xl shadow-gray-200/50 dark:shadow-black/20 border border-gray-100 dark:border-gray-700 overflow-hidden">
+                            {isPlaying && activeSource ? (
+                                <div className="relative aspect-video rounded-2xl overflow-hidden bg-black">
+                                    {activeSource.file_type === 'embed' || activeSource.url.includes('iframe') ? (
+                                        <iframe
+                                            src={activeSource.url}
+                                            className="w-full h-full"
+                                            allowFullScreen
+                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                        />
+                                    ) : (
+                                        <video
+                                            className="w-full h-full"
+                                            controls
+                                            autoPlay
+                                            src={activeSource.url}
+                                            poster={videoDetails.thumbnail}
+                                        >
+                                            Your browser does not support the video tag.
+                                        </video>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="relative aspect-video rounded-2xl overflow-hidden bg-black group">
+                                    <img
+                                        src={videoDetails.thumbnail}
+                                        alt={videoDetails.title}
+                                        className="w-full h-full object-cover opacity-90 group-hover:opacity-60 transition-opacity duration-300"
+                                    />
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                        <button
+                                            onClick={() => handlePlay()}
+                                            className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300 cursor-pointer hover:bg-white/30"
+                                        >
+                                            <MonitorPlay className="w-8 h-8 text-white fill-white" />
+                                        </button>
+                                    </div>
+                                    <div className="absolute bottom-4 right-4 bg-black/70 text-white px-3 py-1 rounded-lg text-sm font-medium backdrop-blur-sm">
+                                        {formatDuration(videoDetails.duration)}
                                     </div>
                                 </div>
-                                <div className="absolute bottom-4 right-4 bg-black/70 text-white px-3 py-1 rounded-lg text-sm font-medium backdrop-blur-sm">
-                                    {formatDuration(videoDetails.duration)}
-                                </div>
-                            </div>
+                            )}
                         </div>
 
                         {/* Title & Description */}
@@ -180,7 +222,13 @@ export default function ViewVideoPage({
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
                                 {videoDetails?.videoSources?.length ? (
                                     videoDetails.videoSources.map((source: any, index: number) => (
-                                        <div key={index} className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow group">
+                                        <div
+                                            key={index}
+                                            className={`bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border hover:shadow-md transition-all group ${activeSource?.id === source.id && isPlaying
+                                                    ? 'border-blue-500 ring-1 ring-blue-500 dark:border-blue-500'
+                                                    : 'border-gray-100 dark:border-gray-700'
+                                                }`}
+                                        >
                                             <div className="flex justify-between items-start mb-4">
                                                 <div className="flex items-center gap-2">
                                                     <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400">
@@ -203,16 +251,34 @@ export default function ViewVideoPage({
                                                     <span className="text-gray-500">Created</span>
                                                     <span className="font-medium dark:text-gray-300 text-xs">{source.created_at ? new Date(source.created_at).toLocaleDateString() : 'N/A'}</span>
                                                 </div>
-                                                <div className="pt-2">
+                                                <div className="pt-3 flex items-center justify-between gap-3">
+                                                    <button
+                                                        onClick={() => handlePlay(source)}
+                                                        className={`flex-1 flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${activeSource?.id === source.id && isPlaying
+                                                                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+                                                            }`}
+                                                    >
+                                                        {activeSource?.id === source.id && isPlaying ? (
+                                                            <>
+                                                                <MonitorPlay className="w-4 h-4" />
+                                                                Now Playing
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <MonitorPlay className="w-4 h-4" />
+                                                                Play Video
+                                                            </>
+                                                        )}
+                                                    </button>
                                                     <a
                                                         href={source.url}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
-                                                        className="text-blue-600 hover:underline text-xs break-all line-clamp-1 flex items-center gap-1"
+                                                        className="p-1.5 text-gray-400 hover:text-blue-600 transition-colors"
                                                         title={source.url}
                                                     >
-                                                        <LinkIcon className="w-3 h-3 shrink-0" />
-                                                        {source.url}
+                                                        <LinkIcon className="w-4 h-4" />
                                                     </a>
                                                 </div>
                                             </div>

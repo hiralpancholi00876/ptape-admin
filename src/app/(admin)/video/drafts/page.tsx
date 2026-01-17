@@ -25,10 +25,16 @@ interface Video {
     datetime?: string;
     status: string | undefined;
     scrap_data: any;
-    upload_status: string | 'pending';
+    upload_status: 'not_started' | 'queued' | 'downloading' | 'ffmpeg' | 'uploading' | 'completed' | 'failed' | 'stopped';
     webhook_data: any;
     job_id: string | undefined;
     id: number;
+}
+
+interface VideoStatus {
+    id: number;
+    status: string;
+    upload_status: 'not_started' | 'queued' | 'downloading' | 'ffmpeg' | 'uploading' | 'completed' | 'failed' | 'stopped';
 }
 
 interface ApiResponse<T> {
@@ -56,6 +62,31 @@ export default function DirectUploadPage() {
             const response = await axios.get<ApiResponse<Video[]>>('/draft-videos');
             return response.data.data;
         },
+    });
+
+    // --- POLLING STATUS ---
+    const { data: statusUpdates } = useQuery({
+        queryKey: ['draft-videos-status'],
+        queryFn: async () => {
+            const response = await axios.get<ApiResponse<VideoStatus[]>>('/draft-videos-status');
+            return response.data.data;
+        },
+        refetchInterval: 2000,
+        refetchIntervalInBackground: true,
+        staleTime: 0,
+    });
+
+    // Merge status updates with main video list
+    const mergedVideos = mainVideos.map(video => {
+        const update = statusUpdates?.find(s => s.id === video.id);
+        if (update) {
+            return {
+                ...video,
+                status: update.status,
+                upload_status: update.upload_status
+            } as Video;
+        }
+        return video;
     });
 
     // --- MUTATIONS ---
@@ -196,7 +227,7 @@ export default function DirectUploadPage() {
                             </div>
                         ))}
                     </div>
-                ) : mainVideos.length === 0 ? (
+                ) : mergedVideos.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-gray-800 rounded-3xl border border-dashed border-gray-200 dark:border-gray-700">
                         <div className="bg-gray-50 dark:bg-gray-700/50 p-6 rounded-full mb-4">
                             <VideoIcon className="w-12 h-12 text-gray-400 dark:text-gray-500" />
@@ -208,7 +239,7 @@ export default function DirectUploadPage() {
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6">
-                        {mainVideos.map((video, index) => (
+                        {mergedVideos.map((video, index) => (
                             <div
                                 key={video.id || index}
                                 className="group relative bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-xl hover:shadow-gray-200/50 dark:hover:shadow-gray-900/50 hover:border-blue-500/30 dark:hover:border-blue-500/30 transition-all duration-300 overflow-hidden flex flex-col"
@@ -283,7 +314,7 @@ export default function DirectUploadPage() {
                                             </button>
                                         )}
 
-                                        {video.status === 'done' && video.upload_status === 'pending' && (
+                                        {video.status === 'done' && video.upload_status === 'not_started' && (
                                             <button
                                                 onClick={() => handleRemoteUpload(video)}
                                                 className="col-span-1 flex flex-col items-center justify-center p-2 rounded-xl bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors group/btn"

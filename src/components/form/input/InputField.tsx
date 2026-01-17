@@ -1,4 +1,5 @@
 import React, { FC } from "react";
+import { Clipboard } from "lucide-react";
 
 interface InputProps {
   type?: "text" | "number" | "email" | "password" | "date" | "time" | string;
@@ -17,6 +18,7 @@ interface InputProps {
   error?: boolean;
   hint?: string; // Optional hint text
   required?: boolean; // Optional required attribute
+  enablePaste?: boolean; // Optional prop to enable paste button
 }
 
 const Input: FC<InputProps> = ({
@@ -35,10 +37,15 @@ const Input: FC<InputProps> = ({
   success = false,
   error = false,
   hint,
-  required = false
+  required = false,
+  enablePaste = false
 }) => {
   // Determine input styles based on state (disabled, success, error)
   let inputClasses = `h-11 w-full rounded-lg border appearance-none px-4 py-2.5 text-sm shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 ${className}`;
+
+  if (enablePaste) {
+    inputClasses += " pr-10";
+  }
 
   // Add styles for the different states
   if (disabled) {
@@ -69,14 +76,39 @@ const Input: FC<InputProps> = ({
         required={required}
       />
 
+      {enablePaste && !disabled && (
+        <button
+          type="button"
+          onClick={async () => {
+            try {
+              const text = await navigator.clipboard.readText();
+              if (text && onChange) {
+                // Create a synthetic event to trigger onChange
+                const event = {
+                  target: { value: text },
+                  currentTarget: { value: text }
+                } as unknown as React.ChangeEvent<HTMLInputElement>;
+                onChange(event);
+              }
+            } catch (err) {
+              console.error("Failed to read clipboard", err);
+            }
+          }}
+          className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-blue-500 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
+          title="Paste from clipboard"
+        >
+          <Clipboard className="w-4 h-4" />
+        </button>
+      )}
+
       {/* Optional Hint Text */}
       {hint && (
         <p
           className={`mt-1.5 text-xs ${error
-              ? "text-error-500"
-              : success
-                ? "text-success-500"
-                : "text-gray-500"
+            ? "text-error-500"
+            : success
+              ? "text-success-500"
+              : "text-gray-500"
             }`}
         >
           {hint}

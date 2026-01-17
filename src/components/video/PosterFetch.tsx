@@ -23,8 +23,9 @@ const PosterDetails: React.FC<PosterDetailsProps> = ({ control, errors, watch })
             <Input
               type="text"
               placeholder="Url"
-              defaultValue={field.value}
+              value={field.value}
               onChange={(e) => field.onChange(e.target.value)}
+              enablePaste={true}
             />
             {errors.thumbnail?.message && (
               <p className="text-red-500 text-sm mt-1">{String(errors.thumbnail.message)}</p>

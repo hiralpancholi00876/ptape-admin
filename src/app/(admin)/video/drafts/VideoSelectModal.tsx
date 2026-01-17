@@ -19,13 +19,16 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Swal from 'sweetalert2';
 
-// --- Types ---
 interface Video {
     title: string;
     link: string; // Acts as ID
     thumbnail: string;
     datetime?: string;
     status: string | undefined;
+    id: number;
+    upload_status: string;
+    s3_url: string | null;
+    job_id: string | null;
 }
 
 interface ApiResponse {

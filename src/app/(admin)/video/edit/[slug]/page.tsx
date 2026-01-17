@@ -210,91 +210,83 @@ export default function EditVideoPage({
                 </div>
 
                 <form onSubmit={handleSubmit(onSubmit)} className="animate-in fade-in duration-500">
-                    <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-                        {/* Main Content Info */}
-                        <div className="xl:col-span-8 space-y-6">
+                    <div className="space-y-6">
+                        {/* Main Content Info & Sidebar Content Merged */}
 
-                            {/* Detailed Inputs */}
-                            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-                                <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex items-center gap-2">
-                                    <div className="w-1 h-5 bg-blue-500 rounded-full" />
-                                    <h3 className="font-semibold text-gray-900 dark:text-gray-100">Metadata & Basic Info</h3>
-                                </div>
-                                <div className="p-6">
-                                    <VideoDetailsInputs control={control} errors={errors} />
-                                    <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-700">
-                                        <Controller
-                                            name="is_active"
-                                            control={control}
-                                            render={({ field }) => (
-                                                <div className="flex flex-row items-center justify-between p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-200 dark:border-gray-700">
-                                                    <div>
-                                                        <span className="text-base font-semibold text-gray-900 dark:text-white">Active Status</span>
-                                                        <p className="text-sm text-gray-500 mt-1">
-                                                            Currently: <span className={field.value ? "text-green-600 font-bold" : "text-gray-500 font-bold"}>{field.value ? 'Published' : 'Draft/Hidden'}</span>
-                                                        </p>
-                                                    </div>
-                                                    <ToggleSwitch
-                                                        label=""
-                                                        checked={field.value}
-                                                        onChange={field.onChange}
-                                                    />
-                                                </div>
-                                            )}
-                                        />
-                                    </div>
-                                </div>
+                        {/* Detailed Inputs */}
+                        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                            <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex items-center gap-2">
+                                <div className="w-1 h-5 bg-blue-500 rounded-full" />
+                                <h3 className="font-semibold text-gray-900 dark:text-gray-100">Metadata & Basic Info</h3>
                             </div>
-
-                            {/* Taxonomy Cluster */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 flex flex-col">
-                                    <h3 className="font-semibold mb-4 text-gray-900 dark:text-gray-100">Studios</h3>
-                                    <div className="flex-1">
-                                        <StudioSelect control={control} />
-                                    </div>
-                                </div>
-                                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 flex flex-col">
-                                    <h3 className="font-semibold mb-4 text-gray-900 dark:text-gray-100">Cast / Pornstars</h3>
-                                    <div className="flex-1">
-                                        <PornstarSelect control={control} errors={errors} />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
-                                <h3 className="font-semibold mb-4 text-gray-900 dark:text-gray-100">Categories</h3>
-                                <CategoryDetails control={control} errors={errors} />
-                            </div>
-
-                        </div>
-
-                        {/* Sidebar */}
-                        <div className="xl:col-span-4 space-y-6">
-
-                            {/* Poster */}
-                            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-                                <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 font-medium">
-                                    Thumbnail
-                                </div>
-                                <div className="p-6">
-                                    <PosterFetch control={control} errors={errors} watch={watch} />
-                                </div>
-                            </div>
-
-                            {/* Sources */}
-                            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-                                <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 font-medium flex justify-between items-center">
-                                    <span>Video Sources</span>
-                                    <span className="text-xs text-gray-500 bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded">Manage Stream Links</span>
-                                </div>
-                                <div className="p-6">
-                                    <VideoSourceManager
+                            <div className="p-6">
+                                <VideoDetailsInputs control={control} errors={errors} />
+                                <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-700">
+                                    <Controller
+                                        name="is_active"
                                         control={control}
-                                        name="videoSources"
+                                        render={({ field }) => (
+                                            <div className="flex flex-row items-center justify-between p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-200 dark:border-gray-700">
+                                                <div>
+                                                    <span className="text-base font-semibold text-gray-900 dark:text-white">Active Status</span>
+                                                    <p className="text-sm text-gray-500 mt-1">
+                                                        Currently: <span className={field.value ? "text-green-600 font-bold" : "text-gray-500 font-bold"}>{field.value ? 'Published' : 'Draft/Hidden'}</span>
+                                                    </p>
+                                                </div>
+                                                <ToggleSwitch
+                                                    label=""
+                                                    checked={field.value}
+                                                    onChange={field.onChange}
+                                                />
+                                            </div>
+                                        )}
                                     />
                                 </div>
                             </div>
+                        </div>
+
+                        {/* Taxonomy Cluster */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 flex flex-col">
+                                <h3 className="font-semibold mb-4 text-gray-900 dark:text-gray-100">Studios</h3>
+                                <div className="flex-1">
+                                    <StudioSelect control={control} />
+                                </div>
+                            </div>
+                            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 flex flex-col">
+                                <h3 className="font-semibold mb-4 text-gray-900 dark:text-gray-100">Cast / Pornstars</h3>
+                                <div className="flex-1">
+                                    <PornstarSelect control={control} errors={errors} />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+                            <h3 className="font-semibold mb-4 text-gray-900 dark:text-gray-100">Categories</h3>
+                            <CategoryDetails control={control} errors={errors} />
+                        </div>
+
+                        {/* Poster Fetch moved inline */}
+                        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                            <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 font-medium">
+                                Thumbnail
+                            </div>
+                            <div className="p-6">
+                                <PosterFetch control={control} errors={errors} watch={watch} />
+                            </div>
+                        </div>
+                    </div>
+                    {/* Sources */}
+                    <div className="mt-8 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                        <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 font-medium flex justify-between items-center">
+                            <span>Video Sources</span>
+                            <span className="text-xs text-gray-500 bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded">Manage Stream Links</span>
+                        </div>
+                        <div className="p-6">
+                            <VideoSourceManager
+                                control={control}
+                                name="videoSources"
+                            />
                         </div>
                     </div>
                 </form>

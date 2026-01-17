@@ -310,23 +310,15 @@ export default function AddVideo() {
               </div>
             </div>
 
+
+
             {/* Right Column - Media & Tools */}
             <div className="xl:col-span-4 space-y-6">
-
+              {/* Poster / Thumbnail */}
               <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
                 <div className="p-4 border-b border-gray-100 dark:border-gray-700 font-medium">Poster / Thumbnail</div>
                 <div className="p-6">
                   <PosterFetch control={control} errors={errors} watch={watch} />
-                </div>
-              </div>
-
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-                <div className="p-4 border-b border-gray-100 dark:border-gray-700 font-medium">Video Sources</div>
-                <div className="p-6">
-                  <VideoSourceManager
-                    control={control}
-                    name="videoSources"
-                  />
                 </div>
               </div>
               {/* Scrap Tool */}
@@ -342,7 +334,17 @@ export default function AddVideo() {
                 </div>
                 <ScrapDetails onDataReceived={handleScrapedData} />
               </div>
+            </div>
+          </div>
 
+          {/* Video Sources */}
+          <div className="mt-8 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+            <div className="p-4 border-b border-gray-100 dark:border-gray-700 font-medium">Video Sources</div>
+            <div className="p-6">
+              <VideoSourceManager
+                control={control}
+                name="videoSources"
+              />
             </div>
           </div>
         </form>
