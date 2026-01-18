@@ -9,6 +9,9 @@ import {
     Upload,
     Video as VideoIcon,
     Cloud,
+    CheckCircle,
+    X,
+    MoreHorizontal
 } from 'lucide-react';
 import { VideoSelectModal } from './VideoSelectModal';
 import axios from '@/utils/axios';
@@ -48,7 +51,9 @@ export default function DirectUploadPage() {
 
     // State for modals
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isRemoteUploadModalOpen, setIsRemoteUploadModalOpen] = useState(false);
+
+    // State for selection
+    const [selectedLinks, setSelectedLinks] = useState<string[]>([]);
 
     // --- DATA FETCHING ---
     const {
@@ -95,15 +100,10 @@ export default function DirectUploadPage() {
             return axios.post<ApiResponse<null>>('/delete-draft-video', { link });
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['draft-videos'] });
+            // We invalidate queries after all operations are done in bulk handler
         },
         onError: () => {
-            Swal.fire({
-                title: 'Error',
-                text: 'Failed to delete draft video.',
-                icon: 'error',
-                confirmButtonColor: '#ef4444'
-            });
+            // Error handling done in bulk handler
         }
     });
 
@@ -112,26 +112,146 @@ export default function DirectUploadPage() {
             return axios.post('/add-to-remote-upload', params);
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['draft-videos'] });
-            Swal.fire({
-                title: 'Success',
-                text: 'Remote upload job added successfully.',
-                icon: 'success',
-                confirmButtonColor: '#9333ea',
-                timer: 2000
-            });
+            // We invalidate queries after all operations are done in bulk handler
         },
         onError: () => {
-            Swal.fire({
-                title: 'Error',
-                text: 'Failed to add remote upload job.',
-                icon: 'error',
-                confirmButtonColor: '#ef4444'
-            });
+            // Error handling done in bulk handler
         }
     });
 
     // --- HANDLERS ---
+
+    // Selection Handlers
+    const toggleSelection = (link: string) => {
+        setSelectedLinks(prev => {
+            if (prev.includes(link)) {
+                return prev.filter(l => l !== link);
+            } else {
+                return [...prev, link];
+            }
+        });
+    };
+
+    const selectAll = () => {
+        if (selectedLinks.length === mergedVideos.length) {
+            setSelectedLinks([]);
+        } else {
+            setSelectedLinks(mergedVideos.map(v => v.link));
+        }
+    };
+
+    const clearSelection = () => {
+        setSelectedLinks([]);
+    };
+
+    // Bulk Action Handlers
+    const handleBulkDelete = () => {
+        Swal.fire({
+            title: `Delete ${selectedLinks.length} Videos?`,
+            text: "You won't be able to revert this action!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Yes, delete them',
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                // Show loading state
+                Swal.fire({
+                    title: 'Deleting...',
+                    text: 'Please wait',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                try {
+                    // Execute all deletions
+                    await Promise.all(selectedLinks.map(link => deleteMutation.mutateAsync(link)));
+
+                    queryClient.invalidateQueries({ queryKey: ['draft-videos'] });
+                    setSelectedLinks([]);
+
+                    Swal.fire({
+                        title: 'Deleted!',
+                        text: 'Selected videos have been deleted.',
+                        icon: 'success',
+                        timer: 2000
+                    });
+                } catch (error) {
+                    Swal.fire({
+                        title: 'Error',
+                        text: 'Failed to delete some videos.',
+                        icon: 'error'
+                    });
+                }
+            }
+        });
+    };
+
+    const handleBulkUpload = () => {
+        // Filter eligible videos: must be selected AND status='done' AND upload_status='not_started'
+        const eligibleVideos = mergedVideos.filter(v =>
+            selectedLinks.includes(v.link) &&
+            ((v.status === 'done' && v.upload_status === 'not_started') ||
+            (v.upload_status === 'stopped' || v.upload_status === 'failed'))
+        );
+
+        if (eligibleVideos.length === 0) {
+            Swal.fire({
+                title: 'No Eligible Videos',
+                text: 'None of the selected videos are ready for upload (must be Done and Not Started).',
+                icon: 'info'
+            });
+            return;
+        }
+
+        Swal.fire({
+            title: `Upload ${eligibleVideos.length} Videos?`,
+            text: 'This will queue the valid selected videos for remote upload.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#9333ea',
+            confirmButtonText: 'Start Upload',
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                // Show loading state
+                Swal.fire({
+                    title: 'Queueing Uploads...',
+                    text: 'Please wait',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                try {
+                    await Promise.all(eligibleVideos.map(v =>
+                        remoteUploadMutation.mutateAsync({ link: v.link, id: v.id })
+                    ));
+
+                    queryClient.invalidateQueries({ queryKey: ['draft-videos'] });
+                    setSelectedLinks([]); // Optional: clear selection after action
+
+                    Swal.fire({
+                        title: 'Success',
+                        text: `${eligibleVideos.length} videos queued for upload.`,
+                        icon: 'success',
+                        timer: 2000
+                    });
+                } catch (error) {
+                    Swal.fire({
+                        title: 'Error',
+                        text: 'Failed to queue some uploads.',
+                        icon: 'error'
+                    });
+                }
+            }
+        });
+    };
+
+    // Single Item Handlers (legacy compatible)
     const handleDeleteVideo = (link: string) => {
         Swal.fire({
             title: 'Delete Draft?',
@@ -141,9 +261,25 @@ export default function DirectUploadPage() {
             confirmButtonColor: '#ef4444',
             cancelButtonColor: '#6b7280',
             confirmButtonText: 'Yes, delete it',
-        }).then((result) => {
+        }).then(async (result) => {
             if (result.isConfirmed) {
-                deleteMutation.mutate(link);
+                try {
+                    await deleteMutation.mutateAsync(link);
+                    queryClient.invalidateQueries({ queryKey: ['draft-videos'] });
+                    // Also remove from selection if present
+                    if (selectedLinks.includes(link)) {
+                        toggleSelection(link);
+                    }
+                    Swal.fire({
+                        title: 'Deleted!',
+                        text: 'Video has been deleted.',
+                        icon: 'success',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                } catch (e) {
+                    // Error handled by mutation or here
+                }
             }
         });
     };
@@ -165,35 +301,105 @@ export default function DirectUploadPage() {
             confirmButtonColor: '#9333ea',
             cancelButtonColor: '#6b7280',
             confirmButtonText: 'Start Upload'
-        }).then((result) => {
+        }).then(async (result) => {
             if (result.isConfirmed) {
-                remoteUploadMutation.mutate({ link: video.link, id: video.id });
+                try {
+                    await remoteUploadMutation.mutateAsync({ link: video.link, id: video.id });
+                    queryClient.invalidateQueries({ queryKey: ['draft-videos'] });
+                    Swal.fire({
+                        title: 'Success',
+                        text: 'Remote upload job added successfully.',
+                        icon: 'success',
+                        confirmButtonColor: '#9333ea',
+                        timer: 2000
+                    });
+                } catch (e) {
+                    // Error handled
+                }
             }
         });
     };
 
     const closeModal = () => {
         setIsModalOpen(false);
-        // Slight delay to allow backend to process if needed, or just refetch
         setTimeout(() => refetch(), 500);
     };
+
+    // Derived state for bulk buttons
+    const hasSelection = selectedLinks.length > 0;
+    const uploadableCount = mergedVideos.filter(v =>
+        selectedLinks.includes(v.link) &&
+        ((v.status === 'done' && v.upload_status === 'not_started') ||
+        (v.upload_status === 'stopped' || v.upload_status === 'failed'))
+    ).length;
 
     return (
         <div className="min-h-screen bg-gray-50/50 dark:bg-gray-900/50 p-6">
             <div className="max-w-[1600px] mx-auto space-y-8">
 
                 {/* Header Section */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700/50">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700/50 sticky top-4 z-20 backdrop-blur-xl bg-white/90 dark:bg-gray-800/90">
                     <div>
-                        <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 bg-clip-text text-transparent">
-                            Draft Videos
-                        </h1>
-                        <p className="text-gray-500 dark:text-gray-400 mt-1">
-                            Manage and process your pending video uploads
-                        </p>
+                        {hasSelection ? (
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={clearSelection}
+                                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                                >
+                                    <X className="w-5 h-5 text-gray-500" />
+                                </button>
+                                <div>
+                                    <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                                        {selectedLinks.length} Selected
+                                    </h1>
+                                    <p className="text-sm text-gray-500">Select actions for items</p>
+                                </div>
+                            </div>
+                        ) : (
+                            <>
+                                <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 bg-clip-text text-transparent">
+                                    Draft Videos
+                                </h1>
+                                <p className="text-gray-500 dark:text-gray-400 mt-1">
+                                    Manage and process your pending video uploads
+                                </p>
+                            </>
+                        )}
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3">
+
+                        {hasSelection ? (
+                            <>
+                                {uploadableCount > 0 && (
+                                    <button
+                                        onClick={handleBulkUpload}
+                                        className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-5 py-2.5 rounded-xl shadow-lg shadow-purple-600/20 transition-all duration-200"
+                                    >
+                                        <Cloud className="w-5 h-5" />
+                                        <span className="font-medium">Upload ({uploadableCount})</span>
+                                    </button>
+                                )}
+                                <button
+                                    onClick={handleBulkDelete}
+                                    className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-xl shadow-lg shadow-red-600/20 transition-all duration-200"
+                                >
+                                    <Trash2 className="w-5 h-5" />
+                                    <span className="font-medium">Delete ({selectedLinks.length})</span>
+                                </button>
+                                <div className="w-px h-8 bg-gray-200 dark:bg-gray-700 mx-1" />
+                            </>
+                        ) : null}
+
+                        {/* Standard Actions */}
+                        <button
+                            onClick={selectAll}
+                            className={`p-2.5 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200`}
+                            title={selectedLinks.length === mergedVideos.length && mergedVideos.length > 0 ? "Deselect All" : "Select All"}
+                        >
+                            <CheckCircle className={`w-5 h-5 ${selectedLinks.length === mergedVideos.length && mergedVideos.length > 0 ? 'text-blue-600 dark:text-blue-400' : ''}`} />
+                        </button>
+
                         <button
                             onClick={() => refetch()}
                             className={`p-2.5 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200 ${isRefetching ? 'animate-spin' : ''}`}
@@ -239,113 +445,134 @@ export default function DirectUploadPage() {
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6">
-                        {mergedVideos.map((video, index) => (
-                            <div
-                                key={video.id || index}
-                                className="group relative bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-xl hover:shadow-gray-200/50 dark:hover:shadow-gray-900/50 hover:border-blue-500/30 dark:hover:border-blue-500/30 transition-all duration-300 overflow-hidden flex flex-col"
-                            >
-                                {/* Thumbnail Section */}
-                                <div className="relative aspect-video overflow-hidden bg-gray-100 dark:bg-gray-700">
-                                    <img
-                                        src={video.thumbnail}
-                                        alt={video.title}
-                                        className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
-                                        loading="lazy"
-                                    />
+                        {mergedVideos.map((video, index) => {
+                            const isSelected = selectedLinks.includes(video.link);
 
-                                    {/* Overlay Gradient */}
-                                    <div className="absolute inset-0 bg-gradient-to-t from-gray-900/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                            return (
+                                <div
+                                    key={video.id || index}
+                                    onClick={(e) => {
+                                        // Don't trigger if clicking buttons
+                                        if ((e.target as HTMLElement).closest('button')) return;
+                                        toggleSelection(video.link);
+                                    }}
+                                    className={`group relative bg-white dark:bg-gray-800 rounded-2xl shadow-sm border transition-all duration-300 overflow-hidden flex flex-col cursor-pointer
+                                        ${isSelected
+                                            ? 'border-blue-500 ring-2 ring-blue-500/20 shadow-xl'
+                                            : 'border-gray-100 dark:border-gray-700 hover:shadow-xl hover:shadow-gray-200/50 dark:hover:shadow-gray-900/50 hover:border-blue-500/30'
+                                        }
+                                    `}
+                                >
+                                    {/* Thumbnail Section */}
+                                    <div className="relative aspect-video overflow-hidden bg-gray-100 dark:bg-gray-700">
+                                        <img
+                                            src={video.thumbnail}
+                                            alt={video.title}
+                                            className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
+                                            loading="lazy"
+                                        />
 
-                                    {/* Status Badges - Top Right */}
-                                    <div className="absolute top-3 right-3 flex flex-col gap-2">
-                                        <div className={`backdrop-blur-md px-2.5 py-1 rounded-full text-xs font-semibold shadow-sm flex items-center gap-1.5 border ${video.status === 'done'
-                                            ? 'bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400'
-                                            : video.status === 'pending'
-                                                ? 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
-                                                : 'bg-gray-500/10 border-gray-500/20 text-gray-600 dark:text-gray-400'
-                                            }`}>
-                                            <span className={`w-1.5 h-1.5 rounded-full ${video.status === 'done' ? 'bg-green-500' :
-                                                video.status === 'pending' ? 'bg-amber-500' : 'bg-gray-500'
-                                                }`} />
-                                            {video.status}
+                                        {/* Overlay Gradient */}
+                                        <div className={`absolute inset-0 bg-gradient-to-t from-gray-900/80 via-transparent to-transparent transition-opacity duration-300 ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} />
+
+                                        {/* Selection Checkbox */}
+                                        <div className="absolute top-3 left-3 z-10">
+                                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${isSelected ? 'bg-blue-500 border-blue-500' : 'bg-black/30 border-white/70 hover:bg-black/50'}`}>
+                                                {isSelected && <CheckCircle className="w-4 h-4 text-white" />}
+                                            </div>
+                                        </div>
+
+                                        {/* Status Badges - Top Right */}
+                                        <div className="absolute top-3 right-3 flex flex-col gap-2">
+                                            <div className={`backdrop-blur-md px-2.5 py-1 rounded-full text-xs font-semibold shadow-sm flex items-center gap-1.5 border ${video.status === 'done'
+                                                ? 'bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400'
+                                                : video.status === 'pending'
+                                                    ? 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
+                                                    : 'bg-gray-500/10 border-gray-500/20 text-gray-600 dark:text-gray-400'
+                                                }`}>
+                                                <span className={`w-1.5 h-1.5 rounded-full ${video.status === 'done' ? 'bg-green-500' :
+                                                    video.status === 'pending' ? 'bg-amber-500' : 'bg-gray-500'
+                                                    }`} />
+                                                {video.status}
+                                            </div>
+                                        </div>
+
+                                        {/* Time - Bottom Left Overlay */}
+                                        <div className={`absolute bottom-3 left-3 transition-opacity duration-300 ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                                            <span className="text-white text-xs font-medium bg-black/50 backdrop-blur-md px-2 py-1 rounded-lg">
+                                                {timeAgo(video.datetime)}
+                                            </span>
                                         </div>
                                     </div>
 
-                                    {/* Time - Bottom Left Overlay */}
-                                    <div className="absolute bottom-3 left-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                        <span className="text-white text-xs font-medium bg-black/50 backdrop-blur-md px-2 py-1 rounded-lg">
-                                            {timeAgo(video.datetime)}
-                                        </span>
-                                    </div>
-                                </div>
+                                    {/* Content Section */}
+                                    <div className="p-5 flex flex-col flex-1">
+                                        <div className="mb-4 flex-1">
+                                            <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-base line-clamp-2 leading-snug mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors" title={video.title}>
+                                                {video.title}
+                                            </h3>
 
-                                {/* Content Section */}
-                                <div className="p-5 flex flex-col flex-1">
-                                    <div className="mb-4 flex-1">
-                                        <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-base line-clamp-2 leading-snug mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors" title={video.title}>
-                                            {video.title}
-                                        </h3>
-
-                                        {/* Upload Status Badge */}
-                                        {video.upload_status && (
-                                            <div className="flex items-center gap-2 mt-2">
-                                                <div className={`px-2 py-1 rounded-md text-[10px] font-medium uppercase tracking-wider flex items-center gap-1.5 border ${video.upload_status === 'completed' ? 'bg-green-50 text-green-700 border-green-100 dark:bg-green-900/20 dark:text-green-400 dark:border-green-900/30' :
-                                                    video.upload_status === 'failed' ? 'bg-red-50 text-red-700 border-red-100 dark:bg-red-900/20 dark:text-red-400 dark:border-red-900/30' :
-                                                        ['downloading', 'uploading'].includes(video.upload_status) ? 'bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-900/30' :
-                                                            'bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-900/30'
-                                                    }`}>
-                                                    <Cloud className="w-3 h-3" />
-                                                    {video.upload_status}
+                                            {/* Upload Status Badge */}
+                                            {video.upload_status && (
+                                                <div className="flex items-center gap-2 mt-2">
+                                                    <div className={`px-2 py-1 rounded-md text-[10px] font-medium uppercase tracking-wider flex items-center gap-1.5 border ${video.upload_status === 'completed' ? 'bg-green-50 text-green-700 border-green-100 dark:bg-green-900/20 dark:text-green-400 dark:border-green-900/30' :
+                                                        video.upload_status === 'failed' ? 'bg-red-50 text-red-700 border-red-100 dark:bg-red-900/20 dark:text-red-400 dark:border-red-900/30' :
+                                                            ['downloading', 'uploading'].includes(video.upload_status) ? 'bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-900/30' :
+                                                                'bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-900/30'
+                                                        }`}>
+                                                        <Cloud className="w-3 h-3" />
+                                                        {video.upload_status}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        )}
-                                    </div>
+                                            )}
+                                        </div>
 
-                                    {/* Actions Grid */}
-                                    <div className="grid grid-cols-4 gap-2 mt-auto pt-4 border-t border-gray-100 dark:border-gray-700/50">
-                                        {video.status === 'done' && (
+                                        {/* Actions Grid */}
+                                        <div className="grid grid-cols-4 gap-2 mt-auto pt-4 border-t border-gray-100 dark:border-gray-700/50">
+                                            {video.status === 'done' && (
+                                                <button
+                                                    onClick={() => handleAddVideo(video)}
+                                                    className="col-span-1 flex flex-col items-center justify-center p-2 rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors group/btn"
+                                                    title="Add to Library"
+                                                >
+                                                    <Plus className="w-5 h-5 mb-0.5 group-hover/btn:scale-110 transition-transform" />
+                                                    <span className="text-[10px] font-medium">Add</span>
+                                                </button>
+                                            )}
+
+                                            {(video.status === 'done' && video.upload_status === 'not_started') || (video.upload_status === 'stopped' || video.upload_status === 'failed') && (
+                                                <button
+                                                    onClick={() => handleRemoteUpload(video)}
+                                                    className="col-span-1 flex flex-col items-center justify-center p-2 rounded-xl bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors group/btn"
+                                                    title="Remote Upload"
+                                                >
+                                                    <Upload className="w-5 h-5 mb-0.5 group-hover/btn:scale-110 transition-transform" />
+                                                    <span className="text-[10px] font-medium">{video.upload_status === 'stopped' || video.upload_status === 'failed' ? 'Retry' : 'Upload'}</span>
+                                                </button>
+                                            )}
+
                                             <button
-                                                onClick={() => handleAddVideo(video)}
-                                                className="col-span-1 flex flex-col items-center justify-center p-2 rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors group/btn"
-                                                title="Add to Library"
+                                                onClick={() => window.open(`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(video.title)}`, '_blank')}
+                                                className="col-span-1 flex flex-col items-center justify-center p-2 rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors group/btn"
+                                                title="Search Images"
                                             >
-                                                <Plus className="w-5 h-5 mb-0.5 group-hover/btn:scale-110 transition-transform" />
-                                                <span className="text-[10px] font-medium">Add</span>
+                                                <Search className="w-5 h-5 mb-0.5 group-hover/btn:scale-110 transition-transform" />
+                                                <span className="text-[10px] font-medium">Search</span>
                                             </button>
-                                        )}
 
-                                        {video.status === 'done' && video.upload_status === 'not_started' && (
                                             <button
-                                                onClick={() => handleRemoteUpload(video)}
-                                                className="col-span-1 flex flex-col items-center justify-center p-2 rounded-xl bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors group/btn"
-                                                title="Remote Upload"
+                                                onClick={() => handleDeleteVideo(video.link)}
+                                                className="col-span-1 flex flex-col items-center justify-center p-2 rounded-xl bg-red-50 text-red-500 dark:bg-red-900/20 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors group/btn"
+                                                title="Delete Draft"
                                             >
-                                                <Upload className="w-5 h-5 mb-0.5 group-hover/btn:scale-110 transition-transform" />
-                                                <span className="text-[10px] font-medium">Upload</span>
+                                                <Trash2 className="w-5 h-5 mb-0.5 group-hover/btn:scale-110 transition-transform" />
+                                                <span className="text-[10px] font-medium">Delete</span>
                                             </button>
-                                        )}
-
-                                        <button
-                                            onClick={() => window.open(`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(video.title)}`, '_blank')}
-                                            className="col-span-1 flex flex-col items-center justify-center p-2 rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors group/btn"
-                                            title="Search Images"
-                                        >
-                                            <Search className="w-5 h-5 mb-0.5 group-hover/btn:scale-110 transition-transform" />
-                                            <span className="text-[10px] font-medium">Search</span>
-                                        </button>
-
-                                        <button
-                                            onClick={() => handleDeleteVideo(video.link)}
-                                            className="col-span-1 flex flex-col items-center justify-center p-2 rounded-xl bg-red-50 text-red-500 dark:bg-red-900/20 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors group/btn"
-                                            title="Delete Draft"
-                                        >
-                                            <Trash2 className="w-5 h-5 mb-0.5 group-hover/btn:scale-110 transition-transform" />
-                                            <span className="text-[10px] font-medium">Delete</span>
-                                        </button>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
+                            )
+                        })}
                     </div>
                 )}
             </div>

@@ -83,7 +83,7 @@ export default function EditVideoPage({
                         file_size: source.file_size || null,
                         file_type: source.file_type || null,
                         quality: source.quality || null,
-                        url: source.url || ""
+                        url: source.url ? source.url.split('?')[0] : ""
                     })));
                 } else {
                     throw new Error(response.data.message || 'Failed to fetch video details');

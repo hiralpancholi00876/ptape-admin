@@ -58,7 +58,7 @@ const AppHeader: React.FC = () => {
             <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center shadow-md shadow-brand-600/20">
               <span className="text-white font-bold text-lg">P</span>
             </div>
-            <span className="text-lg font-bold text-gray-900 dark:text-white">PTape</span>
+            <span className="text-lg font-bold text-gray-900 dark:text-white">Ptape</span>
           </Link>
 
           {/* Mobile Menu Toggle (Right Side) */}

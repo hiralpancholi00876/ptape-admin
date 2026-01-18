@@ -20,7 +20,8 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
-  ChevronsRight
+  ChevronsRight,
+  Search
 } from 'lucide-react';
 import axios from "@/utils/axios";
 import Swal from 'sweetalert2';
@@ -48,10 +49,12 @@ export default function VideoListPage() {
   const [hasLoadedPreferences, setHasLoadedPreferences] = useState(false);
   const [selectedVideos, setSelectedVideos] = useState<number[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Fetch video list from API
   const fetchVideos = async (page = 1, query = "") => {
     try {
+      setIsLoading(true);
       // If search query is provided, append it to the API request
       let addSearchQuery = "";
       if (query) {
@@ -76,6 +79,8 @@ export default function VideoListPage() {
     } catch (error) {
       setVideoList([]);
       setTotalPages(1);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -337,7 +342,7 @@ export default function VideoListPage() {
             onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
             className="border border-gray-300 dark:border-gray-700 rounded-lg pl-10 pr-4 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 dark:text-gray-200"
           />
-          <Eye className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery("")}
@@ -385,100 +390,107 @@ export default function VideoListPage() {
       </div>
 
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {videoList.map((video) => (
-          <div
-            key={video.video_id}
-            onClick={(e) => {
-              // Allow selecting by clicking card background, but avoid conflicting with buttons
-              if (!(e.target as HTMLElement).closest('button') && !(e.target as HTMLElement).closest('.clickable-area')) {
-                toggleSelectVideo(video.video_id);
-              }
-            }}
-            className={`relative rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200 border cursor-pointer group ${selectedVideos.includes(video.video_id)
-              ? 'border-blue-500 ring-2 ring-blue-500 ring-opacity-50 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/10'
-              : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
-              }`}
-          >
-            {/* Selection Checkbox Overlay */}
-            <div className="absolute top-3 left-3 z-20">
-              <div
-                onClick={(e) => { e.stopPropagation(); toggleSelectVideo(video.video_id); }}
-                className={`w-6 h-6 rounded-md border flex items-center justify-center transition-all shadow-sm ${selectedVideos.includes(video.video_id)
-                  ? 'bg-blue-600 border-blue-600 text-white'
-                  : 'bg-white/90 border-gray-300 hover:border-blue-400 text-transparent dark:bg-gray-800/90 dark:border-gray-600'
-                  }`}>
-                <CheckSquare className="w-4 h-4 pointer-events-none" />
-              </div>
-            </div>
-
-            <div className="relative aspect-video bg-gray-100 dark:bg-gray-900 overflow-hidden">
-              <img
-                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                src={video.thumbnail}
-                alt={video.title}
-                referrerPolicy="no-referrer"
-              />
-              <span className="absolute bottom-2 right-2 bg-black/80 backdrop-blur-sm text-white text-xs px-2 py-0.5 rounded font-medium">
-                {formatDuration(video.duration)}
-              </span>
-            </div>
-
-            {/* Content Area - Mark buttons as clickable-area to prevent row selection */}
-            <div className="p-4 clickable-area">
-              <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-2 mb-2 leading-tight min-h-[2.5rem]" title={video.title}>
-                {video.title}
-              </h3>
-
-              <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 mb-3 space-x-2">
-                <span className="flex items-center gap-1"><Eye className="w-3 h-3" /> {convertNumberToSuffix(video.views)}</span>
-                <span>•</span>
-                <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {timeAgo(video.upload_date)}</span>
-              </div>
-
-              <div className="flex flex-wrap gap-1 mb-4 h-6 overflow-hidden">
-                {video.studios.slice(0, 2).map((studio, i) => (
-                  <Badge key={i} variant="solid" color="primary" className="text-[10px] px-1.5 py-0.5">{studio}</Badge>
-                ))}
-              </div>
-
-              {/* Actions Toolbar */}
-              <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
-                <div className="flex items-center -space-x-1">
-                  <button onClick={(e) => { e.stopPropagation(); redirect(`/video/details/${video.slug}`); }}
-                    className="p-2 rounded-full text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-gray-700 dark:hover:text-blue-400 transition-colors" title="View Details">
-                    <Eye className="w-4 h-4" />
-                  </button>
-                  <button onClick={(e) => { e.stopPropagation(); redirect(`/video/edit/${video.slug}`); }}
-                    className="p-2 rounded-full text-gray-500 hover:text-yellow-600 hover:bg-yellow-50 dark:hover:bg-gray-700 dark:hover:text-yellow-400 transition-colors" title="Edit Video">
-                    <Pencil className="w-4 h-4" />
-                  </button>
-                  <button onClick={(e) => { e.stopPropagation(); handleDelete(video.video_id); }}
-                    className="p-2 rounded-full text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-gray-700 dark:hover:text-red-400 transition-colors" title="Delete Video">
-                    <Trash className="w-4 h-4" />
-                  </button>
-                  <button onClick={(e) => { e.stopPropagation(); handleDmca(video.video_id, video.is_dmca); }}
-                    className={`p-2 rounded-full transition-colors ${video.is_dmca ? 'text-green-600 bg-green-50 dark:bg-green-900/20' : 'text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-gray-700'}`}
-                    title={video.is_dmca ? "Remove DMCA" : "Mark DMCA"}>
-                    {video.is_dmca ? <FlagOff className="w-4 h-4" /> : <Flag className="w-4 h-4" />}
-                  </button>
-                </div>
-
-                <div onClick={(e) => e.stopPropagation()}>
-                  <ToggleSwitch
-                    label=""
-                    size="sm"
-                    checked={video.is_active === 1}
-                    onChange={(checked) => handleToggle(video.video_id, checked)}
-                  />
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center py-40">
+          <Loader2 className="w-12 h-12 text-blue-500 animate-spin mb-4" />
+          <p className="text-gray-500 dark:text-gray-400 font-medium">Loading videos...</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {videoList.map((video) => (
+            <div
+              key={video.video_id}
+              onClick={(e) => {
+                // Allow selecting by clicking card background, but avoid conflicting with buttons
+                if (!(e.target as HTMLElement).closest('button') && !(e.target as HTMLElement).closest('.clickable-area')) {
+                  toggleSelectVideo(video.video_id);
+                }
+              }}
+              className={`relative rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200 border cursor-pointer group ${selectedVideos.includes(video.video_id)
+                ? 'border-blue-500 ring-2 ring-blue-500 ring-opacity-50 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/10'
+                : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
+                }`}
+            >
+              {/* Selection Checkbox Overlay */}
+              <div className="absolute top-3 left-3 z-20">
+                <div
+                  onClick={(e) => { e.stopPropagation(); toggleSelectVideo(video.video_id); }}
+                  className={`w-6 h-6 rounded-md border flex items-center justify-center transition-all shadow-sm ${selectedVideos.includes(video.video_id)
+                    ? 'bg-blue-600 border-blue-600 text-white'
+                    : 'bg-white/90 border-gray-300 hover:border-blue-400 text-transparent dark:bg-gray-800/90 dark:border-gray-600'
+                    }`}>
+                  <CheckSquare className="w-4 h-4 pointer-events-none" />
                 </div>
               </div>
-            </div>
-          </div>
-        ))}
-      </div>
 
-      {videoList.length === 0 && (
+              <div className="relative aspect-video bg-gray-100 dark:bg-gray-900 overflow-hidden">
+                <img
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  src={video.thumbnail}
+                  alt={video.title}
+                  referrerPolicy="no-referrer"
+                />
+                <span className="absolute bottom-2 right-2 bg-black/80 backdrop-blur-sm text-white text-xs px-2 py-0.5 rounded font-medium">
+                  {formatDuration(video.duration)}
+                </span>
+              </div>
+
+              {/* Content Area - Mark buttons as clickable-area to prevent row selection */}
+              <div className="p-4 clickable-area">
+                <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-2 mb-2 leading-tight min-h-[2.5rem]" title={video.title}>
+                  {video.title}
+                </h3>
+
+                <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 mb-3 space-x-2">
+                  <span className="flex items-center gap-1"><Eye className="w-3 h-3" /> {convertNumberToSuffix(video.views)}</span>
+                  <span>•</span>
+                  <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {timeAgo(video.upload_date)}</span>
+                </div>
+
+                <div className="flex flex-wrap gap-1 mb-4 h-6 overflow-hidden">
+                  {video.studios.slice(0, 2).map((studio, i) => (
+                    <Badge key={i} variant="solid" color="primary" className="text-[10px] px-1.5 py-0.5">{studio}</Badge>
+                  ))}
+                </div>
+
+                {/* Actions Toolbar */}
+                <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
+                  <div className="flex items-center -space-x-1">
+                    <button onClick={(e) => { e.stopPropagation(); redirect(`/video/details/${video.slug}`); }}
+                      className="p-2 rounded-full text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-gray-700 dark:hover:text-blue-400 transition-colors" title="View Details">
+                      <Eye className="w-4 h-4" />
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); redirect(`/video/edit/${video.slug}`); }}
+                      className="p-2 rounded-full text-gray-500 hover:text-yellow-600 hover:bg-yellow-50 dark:hover:bg-gray-700 dark:hover:text-yellow-400 transition-colors" title="Edit Video">
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); handleDelete(video.video_id); }}
+                      className="p-2 rounded-full text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-gray-700 dark:hover:text-red-400 transition-colors" title="Delete Video">
+                      <Trash className="w-4 h-4" />
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); handleDmca(video.video_id, video.is_dmca); }}
+                      className={`p-2 rounded-full transition-colors ${video.is_dmca ? 'text-green-600 bg-green-50 dark:bg-green-900/20' : 'text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-gray-700'}`}
+                      title={video.is_dmca ? "Remove DMCA" : "Mark DMCA"}>
+                      {video.is_dmca ? <FlagOff className="w-4 h-4" /> : <Flag className="w-4 h-4" />}
+                    </button>
+                  </div>
+
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <ToggleSwitch
+                      label=""
+                      size="sm"
+                      checked={video.is_active === 1}
+                      onChange={(checked) => handleToggle(video.video_id, checked)}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!isLoading && videoList.length === 0 && (
         <div className="flex flex-col items-center justify-center py-20 bg-gray-50 dark:bg-gray-800/50 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 mt-6">
           <div className="bg-white dark:bg-gray-700 p-4 rounded-full shadow-sm mb-4">
             <Eye className="h-8 w-8 text-gray-400 dark:text-gray-500" />

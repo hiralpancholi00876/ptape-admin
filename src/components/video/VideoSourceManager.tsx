@@ -95,7 +95,7 @@ const VideoSourceManager: React.FC<VideoSourceManagerProps> = ({ control, name, 
               onClick={(e) => e.stopPropagation()}
               onKeyDown={(e) => e.stopPropagation()}
               placeholder="File Size (MB)"
-              className="flex-1 border rounded p-2"
+              className="w-[150px] border rounded p-2"
             />
             <select
               id={`file-type-select-${source.id}`}
@@ -107,7 +107,7 @@ const VideoSourceManager: React.FC<VideoSourceManagerProps> = ({ control, name, 
               }}
               onClick={(e) => e.stopPropagation()}
               onKeyDown={(e) => e.stopPropagation()}
-              className="flex-1 border rounded p-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-[150px] border rounded p-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="mp4">MP4</option>
               <option value="hls">HLS</option>
@@ -122,7 +122,7 @@ const VideoSourceManager: React.FC<VideoSourceManagerProps> = ({ control, name, 
               }}
               onClick={(e) => e.stopPropagation()}
               onKeyDown={(e) => e.stopPropagation()}
-              className="flex-1 border rounded p-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-[150px] border rounded p-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="" disabled>Select Quality</option>
               <option value="480p">480p</option>

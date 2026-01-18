@@ -214,13 +214,13 @@ const AppSidebar: React.FC = () => {
           {isExpanded || isHovered || isMobileOpen ? (
             <div className="flex flex-col">
               <h1 className="text-2xl font-black tracking-tight text-gray-900 dark:text-white leading-none">
-                PTape
+                Ptape
               </h1>
               <span className="text-[10px] font-medium text-brand-600 dark:text-brand-400 uppercase tracking-widest ml-0.5">Admin Panel</span>
             </div>
           ) : (
             <div className="w-10 h-10 rounded-xl bg-brand-600 flex items-center justify-center shadow-lg shadow-brand-600/20">
-              <span className="text-white font-bold text-xl">P</span>
+              <span className="text-white font-bold text-xl">Ptape</span>
             </div>
           )}
         </Link>
