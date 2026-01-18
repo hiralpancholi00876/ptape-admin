@@ -71,7 +71,6 @@ export function VideoSelectModal({ isOpen, onClose }: VideoSelectModalProps) {
         data: videos = [],
         isLoading: isVideosLoading,
         isError,
-        isPlaceholderData,
         refetch
     } = useQuery({
         queryKey: ['availableVideos', page],
@@ -119,16 +118,6 @@ export function VideoSelectModal({ isOpen, onClose }: VideoSelectModalProps) {
         onClose();
     }, [onClose]);
 
-    const handleVideoSelect = (link: string) => {
-        const newSet = new Set(selectedVideos);
-        if (newSet.has(link)) {
-            newSet.delete(link);
-        } else {
-            newSet.add(link);
-        }
-        setSelectedVideos(newSet);
-    };
-
     const handlePageChange = (newPage: number) => {
         if (newPage < 1) return;
         setPage(newPage);
@@ -156,62 +145,9 @@ export function VideoSelectModal({ isOpen, onClose }: VideoSelectModalProps) {
         }
     }, [screenshotLink]);
 
-    const handleAddClick = () => {
-        // Find full video objects for selected links
-        // We might need to look across pages? 
-        // Note: With server-side pagination, we only have access to *current* page videos in `videos` array.
-        // If user selects from Page 1 then goes to Page 2, `videos` only has Page 2.
-        // We need to persist the VIDEO OBJECTS, not just links, if we want to submit them.
-        // However, the previous code only filtered from `availableVideos`. 
-        // If the original code's "Append" logic was to support multi-page selection, my "Replace" logic breaks it *unless* I store objects.
-        // Let's improve this: Store Map<link, Video> instead of Set<link>.
-        // Wait, for simplicity and robustness, let's stick to the current page for now 
-        // OR accumulates selected objects.
-
-        // BETTER APPROACH: 
-        // When checking `handleVideoSelect`, if adding, find the video in `videos` and store it in a `selectedVideoObjects` map.
-        // But `selectedVideos` (Set<string>) is easier for UI. 
-        // I will use a ref or state to store the objects that are selected.
-
-        // Actually, let's just assume the user selects from the current view or I'll implement a `selectedVideosMap`.
-        // Let's assume standard behavior: The previous code maintained a potentially huge `availableVideos` array.
-        // I will implement a `selectedVideoObjects` state to support multi-page selection properly.
-
-        // For this iteration, since I revamped to Pagination, I need to ensure I can grab the video data.
-
-        const selectedList = Array.from(selectedVideos).map(link => {
-            // Try to find in current videos first
-            const v = videos.find(v => v.link === link);
-            if (v) return v;
-
-            // If not in current page, check if we stored it?
-            // Fallback: If the API only needs link/id, we are fine. 
-            // Looking at previous code: `axios.post('/save-to-upload-draft', videosToAdd)`
-            // It sends the whole object.
-
-            // To be safe and "Optimized", I will pull from a `knownVideos` cache or just store selected objects.
-            return knownVideos.get(link);
-        }).filter(Boolean) as Video[];
-
-        // Filter out already API selected ones (just in case)
-        const validVideos = selectedList.filter(v => !alreadySelectedSet.has(v.link));
-
-        submitMutation.mutate(validVideos);
-    };
-
-    // We use a Ref or state to keep track of ALL seen videos that are selected, 
-    // to support multi-page selection submission.
     const [knownVideos, setKnownVideos] = useState<Map<string, Video>>(new Map());
 
-    // Update known videos when page changes
-    if (videos.length > 0) {
-        // This is a side effect during render, effectively deriving state. 
-        // Safe if we don't trigger re-renders loop. 
-        // Better: use useEffect.
-    }
-
     // Let's use a simpler "AddToDraft" logic: 
-    // When selecting, add to a "selection buffer".
     const toggleSelection = (video: Video) => {
         const newSet = new Set(selectedVideos);
         const newKnown = new Map(knownVideos);
@@ -228,8 +164,6 @@ export function VideoSelectModal({ isOpen, onClose }: VideoSelectModalProps) {
         setKnownVideos(newKnown);
     };
 
-    // Calculate accumulation for submission
-    // We override handleAddClick to use `knownVideos`
     const handleSubmit = () => {
         const list = Array.from(knownVideos.values()).filter(v => !alreadySelectedSet.has(v.link));
         submitMutation.mutate(list);
@@ -451,9 +385,7 @@ export function VideoSelectModal({ isOpen, onClose }: VideoSelectModalProps) {
 
                             <button
                                 onClick={() => handlePageChange(page + 1)}
-                                disabled={isVideosLoading} // We don't know total pages, so we allow next until maybe empty? 
-                                // Actually API doesn't return total. But if current videos is empty, we probably shouldn't go next.
-                                // However, keeping it enabled is colloquially safer for "unknown length" lists. 
+                                disabled={isVideosLoading}
                                 className="p-2 hover:bg-white dark:hover:bg-gray-700 rounded-md disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
                             >
                                 <ChevronRight className="w-4 h-4" />

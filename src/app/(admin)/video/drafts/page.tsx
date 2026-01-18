@@ -10,8 +10,7 @@ import {
     Video as VideoIcon,
     Cloud,
     CheckCircle,
-    X,
-    MoreHorizontal
+    X
 } from 'lucide-react';
 import { VideoSelectModal } from './VideoSelectModal';
 import axios from '@/utils/axios';
@@ -32,6 +31,8 @@ interface Video {
     webhook_data: any;
     job_id: string | undefined;
     id: number;
+    s3_key: string | null;
+    s3_file_size: number | null;
 }
 
 interface VideoStatus {
@@ -195,7 +196,7 @@ export default function DirectUploadPage() {
         const eligibleVideos = mergedVideos.filter(v =>
             selectedLinks.includes(v.link) &&
             ((v.status === 'done' && v.upload_status === 'not_started') ||
-            (v.upload_status === 'stopped' || v.upload_status === 'failed'))
+                (v.upload_status === 'stopped' || v.upload_status === 'failed'))
         );
 
         if (eligibleVideos.length === 0) {
@@ -284,12 +285,47 @@ export default function DirectUploadPage() {
         });
     };
 
-    const handleAddVideo = (video: Video) => {
-        localStorage.setItem('selectedVideo', JSON.stringify({
-            ...video?.scrap_data,
-            video_sources: video.webhook_data?.r2_data || {}
-        }));
-        router.push('/video/add');
+    const handleAddVideo = async (video: Video) => {
+        // Show loading via Swal
+        Swal.fire({
+            title: 'Loading Data...',
+            text: 'Fetching video details',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        try {
+            const response = await axios.get<ApiResponse<Video>>(`/draft-videos/${video.id}`);
+            if (response.data.success) {
+                const videoData = response.data.data;
+
+                const storageData = {
+                    ...videoData?.scrap_data,
+                    video_sources: [{
+                        url: videoData?.s3_key,
+                        file_size: videoData?.s3_file_size
+                    }]
+                };
+
+                localStorage.setItem('selectedVideo', JSON.stringify(storageData));
+                Swal.close();
+                router.push('/video/add');
+            } else {
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Failed to fetch video details',
+                    icon: 'error'
+                });
+            }
+        } catch (error) {
+            Swal.fire({
+                title: 'Error',
+                text: 'Something went wrong fetching details',
+                icon: 'error'
+            });
+        }
     };
 
     const handleRemoteUpload = (video: Video) => {
@@ -330,7 +366,7 @@ export default function DirectUploadPage() {
     const uploadableCount = mergedVideos.filter(v =>
         selectedLinks.includes(v.link) &&
         ((v.status === 'done' && v.upload_status === 'not_started') ||
-        (v.upload_status === 'stopped' || v.upload_status === 'failed'))
+            (v.upload_status === 'stopped' || v.upload_status === 'failed'))
     ).length;
 
     return (
@@ -540,7 +576,7 @@ export default function DirectUploadPage() {
                                                 </button>
                                             )}
 
-                                            {(video.status === 'done' && video.upload_status === 'not_started') || (video.upload_status === 'stopped' || video.upload_status === 'failed') && (
+                                            {((video.status === 'done' && video.upload_status === 'not_started') || (video.upload_status === 'stopped' || video.upload_status === 'failed')) && (
                                                 <button
                                                     onClick={() => handleRemoteUpload(video)}
                                                     className="col-span-1 flex flex-col items-center justify-center p-2 rounded-xl bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors group/btn"

@@ -14,7 +14,7 @@ import { useRouter } from "next/navigation";
 import { toUTC } from "@/utils/commonFunc";
 import ToggleSwitch from "@/components/form/switch/Switch";
 import CategoryDetails from '@/components/video/CategoryDetails';
-import { Plus, Save, Film, Wand2, ArrowLeft } from 'lucide-react';
+import { Save, Film, Wand2, ArrowLeft } from 'lucide-react';
 
 // Define the form data interface
 interface VideoFormData {
@@ -62,6 +62,7 @@ export default function AddVideo() {
       description: '',
       meta_title: '',
       meta_description: '',
+      datetime: '',
       duration: '00:00:00',
       studios: [],
       pornstars: [],
@@ -85,7 +86,6 @@ export default function AddVideo() {
       if (storedData) {
         try {
           const draftVideoData = JSON.parse(storedData);
-          console.log('Draft Video Data:', draftVideoData);
 
           if (draftVideoData.title) setValue('title', draftVideoData.title);
           if (draftVideoData.meta_title) setValue('meta_title', draftVideoData.meta_title);
@@ -103,13 +103,13 @@ export default function AddVideo() {
           }
 
           if (draftVideoData.video_sources) {
-            setValue('videoSources', [{
+            setValue('videoSources', draftVideoData.video_sources.map((source: any) => ({
               id: null,
-              file_size: draftVideoData?.video_sources?.fileSize || null,
+              file_size: source.file_size || null,
               file_type: "mp4",
               quality: "720p",
-              url: "https://stream.rapid-access.cloud/" + draftVideoData?.video_sources?.key
-            }]);
+              url: "https://s3.g.s4.mega.io/ik5bce3kkygi7zhpn45k5mm6f3gzag73evpgg/ptape-uploads/" + source.url || ""
+            })));
           }
 
           // localStorage.removeItem('selectedVideo'); // Optional: Clear after retrieving
