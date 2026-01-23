@@ -86,7 +86,7 @@ export default function AddVideo() {
       if (storedData) {
         try {
           const draftVideoData = JSON.parse(storedData);
-
+          
           if (draftVideoData.title) setValue('title', draftVideoData.title);
           if (draftVideoData.meta_title) setValue('meta_title', draftVideoData.meta_title);
           if (draftVideoData.meta_description) setValue('meta_description', draftVideoData.meta_description);

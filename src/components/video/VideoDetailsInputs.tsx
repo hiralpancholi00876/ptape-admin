@@ -22,7 +22,7 @@ const VideoDetails: React.FC<VideoDetailsProps> = ({ control, errors }) => {
             <Input
               type="text"
               placeholder="Enter title"
-              defaultValue={field.value}
+              value={field.value}
               onChange={(e) => field.onChange(e.target.value)}
             />
             {errors.title?.message && (
@@ -59,7 +59,7 @@ const VideoDetails: React.FC<VideoDetailsProps> = ({ control, errors }) => {
             <Input
               type="text"
               placeholder="Enter meta title"
-              defaultValue={field.value}
+              value={field.value}
               onChange={(e) => field.onChange(e.target.value)}
             />
             {errors.meta_title?.message && (
@@ -97,7 +97,7 @@ const VideoDetails: React.FC<VideoDetailsProps> = ({ control, errors }) => {
             <Input
               type="datetime-local"
               placeholder="Select date and time"
-              defaultValue={field.value}
+              value={field.value}
               onChange={(e) => field.onChange(e.target.value)}
             />
             {errors.datetime?.message && (
@@ -118,7 +118,7 @@ const VideoDetails: React.FC<VideoDetailsProps> = ({ control, errors }) => {
               <Input
                 type="text"
                 placeholder="00:00:00"
-                defaultValue={field.value}
+                value={field.value}
                 onChange={(e) => field.onChange(e.target.value)}
               />
               {errors.duration?.message && (
