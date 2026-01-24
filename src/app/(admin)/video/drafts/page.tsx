@@ -28,6 +28,7 @@ interface Video {
     status: string | undefined;
     scrap_data: any;
     upload_status: 'not_started' | 'queued' | 'downloading' | 'ffmpeg' | 'uploading' | 'completed' | 'failed' | 'stopped';
+    upload_progress?: number;
     webhook_data: any;
     job_id: string | undefined;
     id: number;
@@ -39,6 +40,7 @@ interface VideoStatus {
     id: number;
     status: string;
     upload_status: 'not_started' | 'queued' | 'downloading' | 'ffmpeg' | 'uploading' | 'completed' | 'failed' | 'stopped';
+    upload_progress: number;
 }
 
 interface ApiResponse<T> {
@@ -89,7 +91,8 @@ export default function DirectUploadPage() {
             return {
                 ...video,
                 status: update.status,
-                upload_status: update.upload_status
+                upload_status: update.upload_status,
+                upload_progress: update.upload_progress
             } as Video;
         }
         return video;
@@ -510,6 +513,36 @@ export default function DirectUploadPage() {
 
                                         {/* Overlay Gradient */}
                                         <div className={`absolute inset-0 bg-gradient-to-t from-gray-900/80 via-transparent to-transparent transition-opacity duration-300 ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} />
+
+                                        {/* Upload Progress Bar */}
+                                        {(video.upload_status === 'uploading') && (
+                                            <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-gray-800/80 backdrop-blur-sm overflow-hidden">
+                                                <div
+                                                    className="h-full bg-gradient-to-r from-blue-500 via-blue-400 to-blue-600 transition-all duration-300 ease-out relative"
+                                                    style={{ width: `${video.upload_progress || 0}%` }}
+                                                >
+                                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-[shimmer_2s_infinite]" style={{
+                                                        backgroundSize: '200% 100%',
+                                                        animation: 'shimmer 2s linear infinite'
+                                                    }} />
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Download Progress Bar */}
+                                        {(video.upload_status === 'downloading') && (
+                                            <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-gray-800/80 backdrop-blur-sm overflow-hidden">
+                                                <div
+                                                    className="h-full bg-gradient-to-r from-red-500 via-red-400 to-red-600 transition-all duration-300 ease-out relative"
+                                                    style={{ width: `${video.upload_progress || 0}%` }}
+                                                >
+                                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent" style={{
+                                                        backgroundSize: '200% 100%',
+                                                        animation: 'shimmer 2s linear infinite'
+                                                    }} />
+                                                </div>
+                                            </div>
+                                        )}
 
                                         {/* Selection Checkbox */}
                                         <div className="absolute top-3 left-3 z-10">

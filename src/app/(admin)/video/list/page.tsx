@@ -42,19 +42,16 @@ interface Video {
 
 export default function VideoListPage() {
   const [videoList, setVideoList] = useState<Video[]>([]);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState((localStorage?.getItem("currentPage") && Number(localStorage?.getItem("currentPage"))) || 1);
   const [totalPages, setTotalPages] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [hasLoadedPreferences, setHasLoadedPreferences] = useState(false);
   const [selectedVideos, setSelectedVideos] = useState<number[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
 
   // Fetch video list from API
   const fetchVideos = async (page = 1, query = "") => {
     try {
-      setIsLoading(true);
       // If search query is provided, append it to the API request
       let addSearchQuery = "";
       if (query) {
@@ -70,6 +67,7 @@ export default function VideoListPage() {
         } else {
           setVideoList(response.data.data.videos || []);
           setTotalPages(response.data.data.pagination.totalPages || 1);
+          localStorage.setItem("currentPage", response.data.data.pagination.currentPage.toString());
           setCurrentPage(response.data.data.pagination.currentPage || 1);
         }
       } else {
@@ -79,8 +77,6 @@ export default function VideoListPage() {
     } catch (error) {
       setVideoList([]);
       setTotalPages(1);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -390,12 +386,7 @@ export default function VideoListPage() {
       </div>
 
 
-      {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-40">
-          <Loader2 className="w-12 h-12 text-blue-500 animate-spin mb-4" />
-          <p className="text-gray-500 dark:text-gray-400 font-medium">Loading videos...</p>
-        </div>
-      ) : (
+      
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {videoList.map((video) => (
             <div
@@ -437,7 +428,7 @@ export default function VideoListPage() {
 
               {/* Content Area - Mark buttons as clickable-area to prevent row selection */}
               <div className="p-4 clickable-area">
-                <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-2 mb-2 leading-tight min-h-[2.5rem]" title={video.title}>
+                <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-2 mb-2 leading-tight" title={video.title}>
                   {video.title}
                 </h3>
 
@@ -447,9 +438,15 @@ export default function VideoListPage() {
                   <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {timeAgo(video.upload_date)}</span>
                 </div>
 
-                <div className="flex flex-wrap gap-1 mb-4 h-6 overflow-hidden">
+                <div className="flex flex-wrap gap-1 mb-2 h-6 overflow-hidden">
                   {video.studios.slice(0, 2).map((studio, i) => (
                     <Badge key={i} variant="solid" color="primary" className="text-[10px] px-1.5 py-0.5">{studio}</Badge>
+                  ))}
+                </div>
+
+                <div className="flex flex-wrap gap-1 mb-4 h-6 overflow-hidden">
+                  {video.pstars?.slice(0, 2).map((pstar, i) => (
+                    <Badge key={i} variant="solid" color="dark" className="text-[10px] px-1.5 py-0.5">{pstar}</Badge>
                   ))}
                 </div>
 
@@ -488,9 +485,8 @@ export default function VideoListPage() {
             </div>
           ))}
         </div>
-      )}
 
-      {!isLoading && videoList.length === 0 && (
+      {videoList.length === 0 && (
         <div className="flex flex-col items-center justify-center py-20 bg-gray-50 dark:bg-gray-800/50 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 mt-6">
           <div className="bg-white dark:bg-gray-700 p-4 rounded-full shadow-sm mb-4">
             <Eye className="h-8 w-8 text-gray-400 dark:text-gray-500" />
