@@ -16,7 +16,7 @@ import {
     XCircle,
     Calendar,
     ArrowLeft,
-    Share2,
+    Lock,
     MonitorPlay,
     Edit3,
     ExternalLink
@@ -190,6 +190,10 @@ export default function ViewVideoPage({
 
                                 <div className="flex flex-wrap items-center gap-6 text-gray-500 dark:text-gray-400 text-sm border-y border-gray-100 dark:border-gray-700 py-4 my-2">
                                     <div className="flex items-center gap-2">
+                                        <Lock className="w-4 h-4 text-blue-500" />
+                                        <span>{videoDetails.video_id}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
                                         <Clock className="w-4 h-4 text-blue-500" />
                                         <span>{timeAgo(videoDetails.upload_date)}</span>
                                     </div>
@@ -200,6 +204,10 @@ export default function ViewVideoPage({
                                     <div className="flex items-center gap-2">
                                         <Calendar className="w-4 h-4 text-orange-500" />
                                         <span>{new Date(videoDetails.upload_date).toLocaleDateString()}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Calendar className="w-4 h-4 text-orange-500" />
+                                        <span>{new Date(videoDetails.upload_date).toLocaleTimeString()}</span>
                                     </div>
                                 </div>
 
