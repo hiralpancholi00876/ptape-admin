@@ -373,117 +373,121 @@ export default function DirectUploadPage() {
     ).length;
 
     return (
-        <div className="min-h-screen bg-gray-50/50 dark:bg-gray-900/50 p-6">
-            <div className="max-w-[1600px] mx-auto space-y-8">
+        <div className="min-h-screen bg-gray-50/50 dark:bg-gray-900/50 p-3 sm:p-4 md:p-6">
+            <div className="max-w-[1600px] mx-auto space-y-4 sm:space-y-6 md:space-y-8">
 
                 {/* Header Section */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700/50 sticky top-4 z-20 backdrop-blur-xl bg-white/90 dark:bg-gray-800/90">
-                    <div>
-                        {hasSelection ? (
-                            <div className="flex items-center gap-3">
-                                <button
-                                    onClick={clearSelection}
-                                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
-                                >
-                                    <X className="w-5 h-5 text-gray-500" />
-                                </button>
-                                <div>
-                                    <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-                                        {selectedLinks.length} Selected
-                                    </h1>
-                                    <p className="text-sm text-gray-500">Select actions for items</p>
+                <div className="bg-white dark:bg-gray-800 p-4 sm:p-5 md:p-6 rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700/50 sticky top-2 sm:top-4 z-20 backdrop-blur-xl bg-white/90 dark:bg-gray-800/90">
+                    {/* Main Header Row - Title and Add button */}
+                    <div className="flex items-center justify-between gap-3 mb-3 sm:mb-4">
+                        <div className="flex-1 min-w-0">
+                            {hasSelection ? (
+                                <div className="flex items-center gap-2 sm:gap-3">
+                                    <button
+                                        onClick={clearSelection}
+                                        className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors flex-shrink-0"
+                                    >
+                                        <X className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500" />
+                                    </button>
+                                    <div>
+                                        <h1 className="text-base sm:text-xl font-bold text-gray-900 dark:text-white">
+                                            {selectedLinks.length} Selected
+                                        </h1>
+                                        <p className="text-xs text-gray-500 hidden sm:block">Select actions for items</p>
+                                    </div>
                                 </div>
-                            </div>
-                        ) : (
-                            <>
-                                <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 bg-clip-text text-transparent">
-                                    Draft Videos
-                                </h1>
-                                <p className="text-gray-500 dark:text-gray-400 mt-1">
-                                    Manage and process your pending video uploads
-                                </p>
-                            </>
-                        )}
+                            ) : (
+                                <>
+                                    <h1 className="text-lg sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 bg-clip-text text-transparent">
+                                        Draft Videos
+                                    </h1>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 hidden sm:block">
+                                        Manage and process your pending video uploads
+                                    </p>
+                                </>
+                            )}
+                        </div>
+
+                        {/* Add Button - Icon on mobile, full on desktop */}
+                        <button
+                            onClick={() => setIsModalOpen(true)}
+                            className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-3 sm:px-5 py-2 sm:py-2.5 rounded-lg sm:rounded-xl shadow-lg shadow-blue-600/20 hover:shadow-blue-600/30 transition-all duration-200 active:scale-95 flex-shrink-0"
+                        >
+                            <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                            <span className="font-medium text-sm hidden sm:inline">Add Video</span>
+                        </button>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-3">
-
+                    {/* Actions Row */}
+                    <div className="flex items-center gap-2 sm:gap-3 flex-wrap pt-3 sm:pt-0 border-t sm:border-t-0 border-gray-100 dark:border-gray-700">
                         {hasSelection ? (
                             <>
                                 {uploadableCount > 0 && (
                                     <button
                                         onClick={handleBulkUpload}
-                                        className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-5 py-2.5 rounded-xl shadow-lg shadow-purple-600/20 transition-all duration-200"
+                                        className="flex items-center gap-1.5 sm:gap-2 bg-purple-600 hover:bg-purple-700 text-white px-2.5 sm:px-5 py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl shadow-lg shadow-purple-600/20 transition-all duration-200 text-xs sm:text-base"
                                     >
-                                        <Cloud className="w-5 h-5" />
+                                        <Cloud className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
                                         <span className="font-medium">Upload ({uploadableCount})</span>
                                     </button>
                                 )}
                                 <button
                                     onClick={handleBulkDelete}
-                                    className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-xl shadow-lg shadow-red-600/20 transition-all duration-200"
+                                    className="flex items-center gap-1.5 sm:gap-2 bg-red-600 hover:bg-red-700 text-white px-2.5 sm:px-5 py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl shadow-lg shadow-red-600/20 transition-all duration-200 text-xs sm:text-base"
                                 >
-                                    <Trash2 className="w-5 h-5" />
+                                    <Trash2 className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
                                     <span className="font-medium">Delete ({selectedLinks.length})</span>
                                 </button>
-                                <div className="w-px h-8 bg-gray-200 dark:bg-gray-700 mx-1" />
+                                <div className="hidden sm:block w-px h-8 bg-gray-200 dark:bg-gray-700 mx-1" />
                             </>
                         ) : null}
 
                         {/* Standard Actions */}
                         <button
                             onClick={selectAll}
-                            className={`p-2.5 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200`}
+                            className="p-2 sm:p-2.5 rounded-lg sm:rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200"
                             title={selectedLinks.length === mergedVideos.length && mergedVideos.length > 0 ? "Deselect All" : "Select All"}
                         >
-                            <CheckCircle className={`w-5 h-5 ${selectedLinks.length === mergedVideos.length && mergedVideos.length > 0 ? 'text-blue-600 dark:text-blue-400' : ''}`} />
+                            <CheckCircle className={`w-4 h-4 sm:w-5 sm:h-5 ${selectedLinks.length === mergedVideos.length && mergedVideos.length > 0 ? 'text-blue-600 dark:text-blue-400' : ''}`} />
                         </button>
 
                         <button
                             onClick={() => refetch()}
-                            className={`p-2.5 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200 ${isRefetching ? 'animate-spin' : ''}`}
+                            className={`p-2 sm:p-2.5 rounded-lg sm:rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200 ${isRefetching ? 'animate-spin' : ''}`}
                             title="Refresh List"
                         >
-                            <RefreshCw className="w-5 h-5" />
-                        </button>
-
-                        <button
-                            onClick={() => setIsModalOpen(true)}
-                            className="group flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl shadow-lg shadow-blue-600/20 hover:shadow-blue-600/30 transition-all duration-200 active:scale-95"
-                        >
-                            <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
-                            <span className="font-medium">Add Video</span>
+                            <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5" />
                         </button>
                     </div>
                 </div>
 
                 {/* Content Section */}
                 {isLoading ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
                         {[...Array(8)].map((_, i) => (
-                            <div key={i} className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 h-80 animate-pulse">
-                                <div className="h-40 bg-gray-200 dark:bg-gray-700 rounded-xl mb-4 w-full" />
-                                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-3" />
-                                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-4" />
+                            <div key={i} className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm border border-gray-100 dark:border-gray-700 h-64 sm:h-80 animate-pulse">
+                                <div className="h-32 sm:h-40 bg-gray-200 dark:bg-gray-700 rounded-lg sm:rounded-xl mb-3 sm:mb-4 w-full" />
+                                <div className="h-3 sm:h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2 sm:mb-3" />
+                                <div className="h-2.5 sm:h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-3 sm:mb-4" />
                                 <div className="flex gap-2 mt-auto">
-                                    <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded-lg flex-1" />
-                                    <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded-lg flex-1" />
+                                    <div className="h-7 sm:h-8 bg-gray-200 dark:bg-gray-700 rounded-lg flex-1" />
+                                    <div className="h-7 sm:h-8 bg-gray-200 dark:bg-gray-700 rounded-lg flex-1" />
                                 </div>
                             </div>
                         ))}
                     </div>
                 ) : mergedVideos.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-gray-800 rounded-3xl border border-dashed border-gray-200 dark:border-gray-700">
-                        <div className="bg-gray-50 dark:bg-gray-700/50 p-6 rounded-full mb-4">
-                            <VideoIcon className="w-12 h-12 text-gray-400 dark:text-gray-500" />
+                    <div className="flex flex-col items-center justify-center py-12 sm:py-16 md:py-20 px-4 bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl border border-dashed border-gray-200 dark:border-gray-700">
+                        <div className="bg-gray-50 dark:bg-gray-700/50 p-4 sm:p-6 rounded-full mb-3 sm:mb-4">
+                            <VideoIcon className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 text-gray-400 dark:text-gray-500" />
                         </div>
-                        <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No Draft Videos</h3>
-                        <p className="text-gray-500 dark:text-gray-400 max-w-sm text-center">
+                        <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-1.5 sm:mb-2">No Draft Videos</h3>
+                        <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 max-w-sm text-center">
                             You haven't created any drafts yet. Click "Add Video" to get started with your first upload.
                         </p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
                         {mergedVideos.map((video, index) => {
                             const isSelected = selectedLinks.includes(video.link);
 
@@ -495,7 +499,7 @@ export default function DirectUploadPage() {
                                         if ((e.target as HTMLElement).closest('button')) return;
                                         toggleSelection(video.link);
                                     }}
-                                    className={`group relative bg-white dark:bg-gray-800 rounded-2xl shadow-sm border transition-all duration-300 overflow-hidden flex flex-col cursor-pointer
+                                    className={`group relative bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl shadow-sm border transition-all duration-300 overflow-hidden flex flex-col cursor-pointer
                                         ${isSelected
                                             ? 'border-blue-500 ring-2 ring-blue-500/20 shadow-xl'
                                             : 'border-gray-100 dark:border-gray-700 hover:shadow-xl hover:shadow-gray-200/50 dark:hover:shadow-gray-900/50 hover:border-blue-500/30'
@@ -545,21 +549,21 @@ export default function DirectUploadPage() {
                                         )}
 
                                         {/* Selection Checkbox */}
-                                        <div className="absolute top-3 left-3 z-10">
-                                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${isSelected ? 'bg-blue-500 border-blue-500' : 'bg-black/30 border-white/70 hover:bg-black/50'}`}>
-                                                {isSelected && <CheckCircle className="w-4 h-4 text-white" />}
+                                        <div className="absolute top-2 left-2 sm:top-3 sm:left-3 z-10">
+                                            <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${isSelected ? 'bg-blue-500 border-blue-500' : 'bg-black/30 border-white/70 hover:bg-black/50'}`}>
+                                                {isSelected && <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 text-white" />}
                                             </div>
                                         </div>
 
                                         {/* Status Badges - Top Right */}
-                                        <div className="absolute top-3 right-3 flex flex-col gap-2">
-                                            <div className={`backdrop-blur-md px-2.5 py-1 rounded-full text-xs font-semibold shadow-sm flex items-center gap-1.5 border ${video.status === 'done'
+                                        <div className="absolute top-2 right-2 sm:top-3 sm:right-3 flex flex-col gap-1.5 sm:gap-2">
+                                            <div className={`backdrop-blur-md px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-semibold shadow-sm flex items-center gap-1 sm:gap-1.5 border ${video.status === 'done'
                                                 ? 'bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400'
                                                 : video.status === 'pending'
                                                     ? 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
                                                     : 'bg-gray-500/10 border-gray-500/20 text-gray-600 dark:text-gray-400'
                                                 }`}>
-                                                <span className={`w-1.5 h-1.5 rounded-full ${video.status === 'done' ? 'bg-green-500' :
+                                                <span className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full ${video.status === 'done' ? 'bg-green-500' :
                                                     video.status === 'pending' ? 'bg-amber-500' : 'bg-gray-500'
                                                     }`} />
                                                 {video.status}
@@ -567,29 +571,29 @@ export default function DirectUploadPage() {
                                         </div>
 
                                         {/* Time - Bottom Left Overlay */}
-                                        <div className={`absolute bottom-3 left-3 transition-opacity duration-300 ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-                                            <span className="text-white text-xs font-medium bg-black/50 backdrop-blur-md px-2 py-1 rounded-lg">
+                                        <div className={`absolute bottom-2 left-2 sm:bottom-3 sm:left-3 transition-opacity duration-300 ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                                            <span className="text-white text-[10px] sm:text-xs font-medium bg-black/50 backdrop-blur-md px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md sm:rounded-lg">
                                                 {timeAgo(video.datetime)}
                                             </span>
                                         </div>
                                     </div>
 
                                     {/* Content Section */}
-                                    <div className="p-5 flex flex-col flex-1">
-                                        <div className="mb-4 flex-1">
-                                            <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-base line-clamp-2 leading-snug mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors" title={video.title}>
+                                    <div className="p-3 sm:p-4 md:p-5 flex flex-col flex-1">
+                                        <div className="mb-2 sm:mb-3 md:mb-4 flex-1">
+                                            <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm sm:text-base line-clamp-2 leading-snug mb-1.5 sm:mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors" title={video.title}>
                                                 {video.title}
                                             </h3>
 
                                             {/* Upload Status Badge */}
                                             {video.upload_status && (
-                                                <div className="flex items-center gap-2 mt-2">
-                                                    <div className={`px-2 py-1 rounded-md text-[10px] font-medium uppercase tracking-wider flex items-center gap-1.5 border ${video.upload_status === 'completed' ? 'bg-green-50 text-green-700 border-green-100 dark:bg-green-900/20 dark:text-green-400 dark:border-green-900/30' :
+                                                <div className="flex items-center gap-1.5 sm:gap-2 mt-1.5 sm:mt-2">
+                                                    <div className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[9px] sm:text-[10px] font-medium uppercase tracking-wider flex items-center gap-1 sm:gap-1.5 border ${video.upload_status === 'completed' ? 'bg-green-50 text-green-700 border-green-100 dark:bg-green-900/20 dark:text-green-400 dark:border-green-900/30' :
                                                         video.upload_status === 'failed' ? 'bg-red-50 text-red-700 border-red-100 dark:bg-red-900/20 dark:text-red-400 dark:border-red-900/30' :
                                                             ['downloading', 'uploading'].includes(video.upload_status) ? 'bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-900/30' :
                                                                 'bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-900/30'
                                                         }`}>
-                                                        <Cloud className="w-3 h-3" />
+                                                        <Cloud className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                                                         {video.upload_status}
                                                     </div>
                                                 </div>
@@ -597,45 +601,45 @@ export default function DirectUploadPage() {
                                         </div>
 
                                         {/* Actions Grid */}
-                                        <div className="grid grid-cols-4 gap-2 mt-auto pt-4 border-t border-gray-100 dark:border-gray-700/50">
+                                        <div className="grid grid-cols-4 gap-1.5 sm:gap-2 mt-auto pt-2.5 sm:pt-3 md:pt-4 border-t border-gray-100 dark:border-gray-700/50">
                                             {video.status === 'done' && (
                                                 <button
                                                     onClick={() => handleAddVideo(video)}
-                                                    className="col-span-1 flex flex-col items-center justify-center p-2 rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors group/btn"
+                                                    className="col-span-1 flex flex-col items-center justify-center p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors group/btn active:scale-95"
                                                     title="Add to Library"
                                                 >
-                                                    <Plus className="w-5 h-5 mb-0.5 group-hover/btn:scale-110 transition-transform" />
-                                                    <span className="text-[10px] font-medium">Add</span>
+                                                    <Plus className="w-4 h-4 sm:w-5 sm:h-5 mb-0 sm:mb-0.5 group-hover/btn:scale-110 transition-transform" />
+                                                    <span className="text-[8px] sm:text-[10px] font-medium hidden xs:block">Add</span>
                                                 </button>
                                             )}
 
                                             {((video.status === 'done' && video.upload_status === 'not_started') || (video.upload_status === 'stopped' || video.upload_status === 'failed')) && (
                                                 <button
                                                     onClick={() => handleRemoteUpload(video)}
-                                                    className="col-span-1 flex flex-col items-center justify-center p-2 rounded-xl bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors group/btn"
+                                                    className="col-span-1 flex flex-col items-center justify-center p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors group/btn active:scale-95"
                                                     title="Remote Upload"
                                                 >
-                                                    <Upload className="w-5 h-5 mb-0.5 group-hover/btn:scale-110 transition-transform" />
-                                                    <span className="text-[10px] font-medium">{video.upload_status === 'stopped' || video.upload_status === 'failed' ? 'Retry' : 'Upload'}</span>
+                                                    <Upload className="w-4 h-4 sm:w-5 sm:h-5 mb-0 sm:mb-0.5 group-hover/btn:scale-110 transition-transform" />
+                                                    <span className="text-[8px] sm:text-[10px] font-medium hidden xs:block">{video.upload_status === 'stopped' || video.upload_status === 'failed' ? 'Retry' : 'Upload'}</span>
                                                 </button>
                                             )}
 
                                             <button
                                                 onClick={() => window.open(`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(video.title)}`, '_blank')}
-                                                className="col-span-1 flex flex-col items-center justify-center p-2 rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors group/btn"
+                                                className="col-span-1 flex flex-col items-center justify-center p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors group/btn active:scale-95"
                                                 title="Search Images"
                                             >
-                                                <Search className="w-5 h-5 mb-0.5 group-hover/btn:scale-110 transition-transform" />
-                                                <span className="text-[10px] font-medium">Search</span>
+                                                <Search className="w-4 h-4 sm:w-5 sm:h-5 mb-0 sm:mb-0.5 group-hover/btn:scale-110 transition-transform" />
+                                                <span className="text-[8px] sm:text-[10px] font-medium hidden xs:block">Search</span>
                                             </button>
 
                                             <button
                                                 onClick={() => handleDeleteVideo(video.link)}
-                                                className="col-span-1 flex flex-col items-center justify-center p-2 rounded-xl bg-red-50 text-red-500 dark:bg-red-900/20 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors group/btn"
+                                                className="col-span-1 flex flex-col items-center justify-center p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-red-50 text-red-500 dark:bg-red-900/20 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors group/btn active:scale-95"
                                                 title="Delete Draft"
                                             >
-                                                <Trash2 className="w-5 h-5 mb-0.5 group-hover/btn:scale-110 transition-transform" />
-                                                <span className="text-[10px] font-medium">Delete</span>
+                                                <Trash2 className="w-4 h-4 sm:w-5 sm:h-5 mb-0 sm:mb-0.5 group-hover/btn:scale-110 transition-transform" />
+                                                <span className="text-[8px] sm:text-[10px] font-medium hidden xs:block">Delete</span>
                                             </button>
                                         </div>
                                     </div>

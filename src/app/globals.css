@@ -9,6 +9,7 @@
   --breakpoint-*: initial;
   --breakpoint-2xsm: 375px;
   --breakpoint-xsm: 425px;
+  --breakpoint-xs: 480px;
   --breakpoint-3xl: 2000px;
   --breakpoint-sm: 640px;
   --breakpoint-md: 768px;

@@ -48,6 +48,8 @@ export default function VideoListPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedVideos, setSelectedVideos] = useState<number[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Load currentPage from localStorage on client side only
   useEffect(() => {
@@ -55,10 +57,15 @@ export default function VideoListPage() {
     if (savedPage) {
       setCurrentPage(Number(savedPage));
     }
+    setIsInitialized(true); // Mark as initialized after checking localStorage
   }, []);
 
   // Fetch video list from API
   const fetchVideos = async (page = 1, query = "") => {
+    // Prevent concurrent requests
+    if (isLoading) return;
+
+    setIsLoading(true);
     try {
       // If search query is provided, append it to the API request
       let addSearchQuery = "";
@@ -85,6 +92,8 @@ export default function VideoListPage() {
     } catch (error) {
       setVideoList([]);
       setTotalPages(1);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -103,9 +112,12 @@ export default function VideoListPage() {
 
 
   useEffect(() => {
+    // Only fetch after initialization to ensure localStorage page is loaded first
+    if (!isInitialized) return;
+
     fetchVideos(currentPage, debouncedSearch);
     setSelectedVideos([]);
-  }, [currentPage, debouncedSearch]);
+  }, [currentPage, debouncedSearch, isInitialized]);
 
   const toggleSelectVideo = (videoId: number) => {
     setSelectedVideos(prev =>
@@ -270,7 +282,8 @@ export default function VideoListPage() {
   };
 
   const handlePageChange = (newPage: number) => {
-    if (newPage > 0 && newPage <= totalPages) {
+    if (isLoading) return; // Prevent page change while loading
+    if (newPage > 0 && newPage <= totalPages && newPage !== currentPage) {
       setCurrentPage(newPage);
     }
   };
@@ -494,7 +507,56 @@ export default function VideoListPage() {
         ))}
       </div>
 
-      {videoList.length === 0 && (
+      {/* Skeleton Loading View */}
+      {isLoading && videoList.length === 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {[...Array(8)].map((_, index) => (
+            <div
+              key={index}
+              className="relative rounded-xl overflow-hidden shadow-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 animate-pulse"
+            >
+              {/* Thumbnail Skeleton */}
+              <div className="aspect-video bg-gray-200 dark:bg-gray-700" />
+
+              {/* Content Skeleton */}
+              <div className="p-4">
+                {/* Title */}
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full mb-2" />
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-3" />
+
+                {/* Meta info */}
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16" />
+                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-20" />
+                </div>
+
+                {/* Badges */}
+                <div className="flex gap-1 mb-2">
+                  <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-14" />
+                  <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-16" />
+                </div>
+                <div className="flex gap-1 mb-4">
+                  <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-12" />
+                  <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-14" />
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
+                  <div className="flex gap-2">
+                    <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-full" />
+                    <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-full" />
+                    <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-full" />
+                    <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-full" />
+                  </div>
+                  <div className="h-6 w-10 bg-gray-200 dark:bg-gray-700 rounded-full" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* {videoList.length === 0 && !isLoading && (
         <div className="flex flex-col items-center justify-center py-20 bg-gray-50 dark:bg-gray-800/50 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 mt-6">
           <div className="bg-white dark:bg-gray-700 p-4 rounded-full shadow-sm mb-4">
             <Eye className="h-8 w-8 text-gray-400 dark:text-gray-500" />
@@ -508,7 +570,7 @@ export default function VideoListPage() {
             Clear Filters
           </button>
         </div>
-      )}
+      )} */}
 
       {/* Pagination */}
       {videoList.length > 0 && totalPages > 1 && (
@@ -516,7 +578,7 @@ export default function VideoListPage() {
           {/* Mobile: Simple Prev/Next */}
           <div className="md:hidden flex items-center bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-1">
             <button
-              disabled={currentPage === 1}
+              disabled={currentPage === 1 || isLoading}
               onClick={() => handlePageChange(currentPage - 1)}
               className="p-2 text-gray-600 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -526,7 +588,7 @@ export default function VideoListPage() {
               {currentPage} / {totalPages}
             </span>
             <button
-              disabled={currentPage === totalPages}
+              disabled={currentPage === totalPages || isLoading}
               onClick={() => handlePageChange(currentPage + 1)}
               className="p-2 text-gray-600 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -537,7 +599,7 @@ export default function VideoListPage() {
           {/* Desktop: Full Pagination */}
           <div className="hidden md:flex items-center bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-1.5 gap-1">
             <button
-              disabled={currentPage === 1}
+              disabled={currentPage === 1 || isLoading}
               onClick={() => handlePageChange(1)}
               className="p-2 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700/50 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all"
               title="First Page"
@@ -545,7 +607,7 @@ export default function VideoListPage() {
               <ChevronsLeft className="w-4 h-4" />
             </button>
             <button
-              disabled={currentPage === 1}
+              disabled={currentPage === 1 || isLoading}
               onClick={() => handlePageChange(currentPage - 1)}
               className="p-2 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700/50 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all mr-2"
               title="Previous Page"
@@ -560,8 +622,9 @@ export default function VideoListPage() {
                     <span className="px-2 text-gray-400 dark:text-gray-500 text-sm">...</span>
                   ) : (
                     <button
+                      disabled={isLoading}
                       onClick={() => handlePageChange(page as number)}
-                      className={`min-w-[36px] h-9 px-3 rounded-lg text-sm font-medium transition-all ${currentPage === page
+                      className={`min-w-[36px] h-9 px-3 rounded-lg text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed ${currentPage === page
                         ? 'bg-blue-600 text-white shadow-md shadow-blue-200 dark:shadow-none'
                         : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
                         }`}
@@ -574,7 +637,7 @@ export default function VideoListPage() {
             </div>
 
             <button
-              disabled={currentPage === totalPages}
+              disabled={currentPage === totalPages || isLoading}
               onClick={() => handlePageChange(currentPage + 1)}
               className="p-2 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700/50 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all ml-2"
               title="Next Page"
@@ -582,7 +645,7 @@ export default function VideoListPage() {
               <ChevronRight className="w-4 h-4" />
             </button>
             <button
-              disabled={currentPage === totalPages}
+              disabled={currentPage === totalPages || isLoading}
               onClick={() => handlePageChange(totalPages)}
               className="p-2 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700/50 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all"
               title="Last Page"
