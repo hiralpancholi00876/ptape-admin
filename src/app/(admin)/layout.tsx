@@ -27,7 +27,7 @@ export default function AdminLayout({
 
         {/* Page Content - pt-16 accounts for fixed header height */}
         <main className="flex-1 p-4 md:p-6 lg:pt-6 overflow-auto">
-          <div className="mx-auto max-w-7xl animate-fade-in">
+          <div className="animate-fade-in">
             {children}
           </div>
         </main>
