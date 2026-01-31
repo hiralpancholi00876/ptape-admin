@@ -19,11 +19,11 @@ const navItems: NavItem[] = [
 ];
 
 const AppSidebar: React.FC = () => {
-  const { isExpanded, isMobileOpen, isHovered, setIsHovered, toggleMobileSidebar } = useSidebar();
+  const { isExpanded, isMobileOpen, toggleMobileSidebar } = useSidebar();
   const pathname = usePathname();
 
   const isActive = (path: string) => pathname === path;
-  const showLabels = isExpanded || isHovered || isMobileOpen;
+  const showLabels = isExpanded || isMobileOpen;
 
   return (
     <>
@@ -41,8 +41,6 @@ const AppSidebar: React.FC = () => {
           transition-all duration-300 ease-in-out
           ${showLabels ? "w-64" : "w-20"}
           ${isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
-        onMouseEnter={() => !isExpanded && setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
       >
         {/* Logo - Desktop only */}
         <div className="hidden lg:flex items-center h-16 px-4 border-b border-gray-200 dark:border-gray-800">

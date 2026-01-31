@@ -1,17 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import {
-    Plus,
-    RefreshCw,
-    Trash2,
-    Search,
-    Upload,
-    Video as VideoIcon,
-    Cloud,
-    CheckCircle,
-    X
-} from 'lucide-react';
+import { Plus, RefreshCw, Trash2, Search, Upload, Video as VideoIcon, Cloud, CheckCircle, X } from 'lucide-react';
 import { VideoSelectModal } from './VideoSelectModal';
 import axios from '@/utils/axios';
 import Swal from 'sweetalert2';
@@ -19,8 +9,8 @@ import { timeAgo } from "@/utils/commonFunc";
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
-// Interface definitions
 interface Video {
+    id: number;
     title: string;
     thumbnail: string;
     link: string;
@@ -31,7 +21,6 @@ interface Video {
     upload_progress?: number;
     webhook_data: any;
     job_id: string | undefined;
-    id: number;
     s3_key: string | null;
     s3_file_size: number | null;
 }
@@ -39,622 +28,274 @@ interface Video {
 interface VideoStatus {
     id: number;
     status: string;
-    upload_status: 'not_started' | 'queued' | 'downloading' | 'ffmpeg' | 'uploading' | 'completed' | 'failed' | 'stopped';
+    upload_status: Video['upload_status'];
     upload_progress: number;
-}
-
-interface ApiResponse<T> {
-    success: boolean;
-    data: T;
 }
 
 export default function DirectUploadPage() {
     const router = useRouter();
     const queryClient = useQueryClient();
-
-    // State for modals
     const [isModalOpen, setIsModalOpen] = useState(false);
-
-    // State for selection
     const [selectedLinks, setSelectedLinks] = useState<string[]>([]);
 
-    // --- DATA FETCHING ---
-    const {
-        data: mainVideos = [],
-        isLoading,
-        isRefetching,
-        refetch
-    } = useQuery({
+    // Fetch videos
+    const { data: mainVideos = [], isLoading, isRefetching, refetch } = useQuery({
         queryKey: ['draft-videos'],
-        queryFn: async () => {
-            const response = await axios.get<ApiResponse<Video[]>>('/draft-videos');
-            return response.data.data;
-        },
+        queryFn: async () => (await axios.get<{ data: Video[] }>('/draft-videos')).data.data,
     });
 
-    // --- POLLING STATUS ---
+    // Poll status updates
     const { data: statusUpdates } = useQuery({
         queryKey: ['draft-videos-status'],
-        queryFn: async () => {
-            const response = await axios.get<ApiResponse<VideoStatus[]>>('/draft-videos-status');
-            return response.data.data;
-        },
+        queryFn: async () => (await axios.get<{ data: VideoStatus[] }>('/draft-videos-status')).data.data,
         refetchInterval: 2000,
         refetchIntervalInBackground: true,
         staleTime: 0,
     });
 
-    // Merge status updates with main video list
-    const mergedVideos = mainVideos.map(video => {
+    // Merge status with videos
+    const videos = mainVideos.map(video => {
         const update = statusUpdates?.find(s => s.id === video.id);
-        if (update) {
-            return {
-                ...video,
-                status: update.status,
-                upload_status: update.upload_status,
-                upload_progress: update.upload_progress
-            } as Video;
-        }
-        return video;
+        return update ? { ...video, ...update } : video;
     });
 
-    // --- MUTATIONS ---
+    // Mutations
     const deleteMutation = useMutation({
-        mutationFn: async (link: string) => {
-            return axios.post<ApiResponse<null>>('/delete-draft-video', { link });
-        },
-        onSuccess: () => {
-            // We invalidate queries after all operations are done in bulk handler
-        },
-        onError: () => {
-            // Error handling done in bulk handler
-        }
+        mutationFn: (link: string) => axios.post('/delete-draft-video', { link }),
     });
 
-    const remoteUploadMutation = useMutation({
-        mutationFn: async (params: { link: string; id: number }) => {
-            return axios.post('/add-to-remote-upload', params);
-        },
-        onSuccess: () => {
-            // We invalidate queries after all operations are done in bulk handler
-        },
-        onError: () => {
-            // Error handling done in bulk handler
-        }
+    const uploadMutation = useMutation({
+        mutationFn: (params: { link: string; id: number }) => axios.post('/add-to-remote-upload', params),
     });
 
-    // --- HANDLERS ---
+    // Selection helpers
+    const isUploadable = (v: Video) =>
+        (v.status === 'done' && v.upload_status === 'not_started') ||
+        v.upload_status === 'stopped' ||
+        v.upload_status === 'failed';
 
-    // Selection Handlers
-    const toggleSelection = (link: string) => {
-        setSelectedLinks(prev => {
-            if (prev.includes(link)) {
-                return prev.filter(l => l !== link);
-            } else {
-                return [...prev, link];
-            }
-        });
-    };
+    const toggleSelect = (link: string) =>
+        setSelectedLinks(prev => prev.includes(link) ? prev.filter(l => l !== link) : [...prev, link]);
 
-    const selectAll = () => {
-        if (selectedLinks.length === mergedVideos.length) {
-            setSelectedLinks([]);
-        } else {
-            setSelectedLinks(mergedVideos.map(v => v.link));
-        }
-    };
+    const selectAll = () =>
+        setSelectedLinks(selectedLinks.length === videos.length ? [] : videos.map(v => v.link));
 
-    const clearSelection = () => {
-        setSelectedLinks([]);
-    };
+    const uploadableSelected = videos.filter(v => selectedLinks.includes(v.link) && isUploadable(v));
 
-    // Bulk Action Handlers
-    const handleBulkDelete = () => {
-        Swal.fire({
-            title: `Delete ${selectedLinks.length} Videos?`,
-            text: "You won't be able to revert this action!",
+    // Actions
+    const confirmAction = async (title: string, action: () => Promise<void>, successMsg: string) => {
+        const result = await Swal.fire({
+            title,
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#ef4444',
-            cancelButtonColor: '#6b7280',
-            confirmButtonText: 'Yes, delete them',
-        }).then(async (result) => {
-            if (result.isConfirmed) {
-                // Show loading state
-                Swal.fire({
-                    title: 'Deleting...',
-                    text: 'Please wait',
-                    allowOutsideClick: false,
-                    didOpen: () => {
-                        Swal.showLoading();
-                    }
-                });
-
-                try {
-                    // Execute all deletions
-                    await Promise.all(selectedLinks.map(link => deleteMutation.mutateAsync(link)));
-
-                    queryClient.invalidateQueries({ queryKey: ['draft-videos'] });
-                    setSelectedLinks([]);
-
-                    Swal.fire({
-                        title: 'Deleted!',
-                        text: 'Selected videos have been deleted.',
-                        icon: 'success',
-                        timer: 2000
-                    });
-                } catch (error) {
-                    Swal.fire({
-                        title: 'Error',
-                        text: 'Failed to delete some videos.',
-                        icon: 'error'
-                    });
-                }
-            }
         });
+        if (result.isConfirmed) {
+            Swal.fire({ title: 'Processing...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            try {
+                await action();
+                queryClient.invalidateQueries({ queryKey: ['draft-videos'] });
+                Swal.fire({ title: 'Success!', text: successMsg, icon: 'success', timer: 2000 });
+            } catch {
+                Swal.fire({ title: 'Error', icon: 'error' });
+            }
+        }
     };
+
+    const handleDelete = (link: string) =>
+        confirmAction('Delete this video?', async () => void await deleteMutation.mutateAsync(link), 'Deleted!');
+
+    const handleBulkDelete = () =>
+        confirmAction(`Delete ${selectedLinks.length} videos?`, async () => {
+            await Promise.all(selectedLinks.map(link => deleteMutation.mutateAsync(link)));
+            setSelectedLinks([]);
+        }, 'Videos deleted!');
+
+    const handleUpload = (video: Video) =>
+        confirmAction('Start upload?', async () => void await uploadMutation.mutateAsync({ link: video.link, id: video.id }), 'Upload queued!');
 
     const handleBulkUpload = () => {
-        // Filter eligible videos: must be selected AND status='done' AND upload_status='not_started'
-        const eligibleVideos = mergedVideos.filter(v =>
-            selectedLinks.includes(v.link) &&
-            ((v.status === 'done' && v.upload_status === 'not_started') ||
-                (v.upload_status === 'stopped' || v.upload_status === 'failed'))
-        );
-
-        if (eligibleVideos.length === 0) {
-            Swal.fire({
-                title: 'No Eligible Videos',
-                text: 'None of the selected videos are ready for upload (must be Done and Not Started).',
-                icon: 'info'
-            });
+        if (!uploadableSelected.length) {
+            Swal.fire({ title: 'No eligible videos', icon: 'info' });
             return;
         }
-
-        Swal.fire({
-            title: `Upload ${eligibleVideos.length} Videos?`,
-            text: 'This will queue the valid selected videos for remote upload.',
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonColor: '#9333ea',
-            confirmButtonText: 'Start Upload',
-        }).then(async (result) => {
-            if (result.isConfirmed) {
-                // Show loading state
-                Swal.fire({
-                    title: 'Queueing Uploads...',
-                    text: 'Please wait',
-                    allowOutsideClick: false,
-                    didOpen: () => {
-                        Swal.showLoading();
-                    }
-                });
-
-                try {
-                    await Promise.all(eligibleVideos.map(v =>
-                        remoteUploadMutation.mutateAsync({ link: v.link, id: v.id })
-                    ));
-
-                    queryClient.invalidateQueries({ queryKey: ['draft-videos'] });
-                    setSelectedLinks([]); // Optional: clear selection after action
-
-                    Swal.fire({
-                        title: 'Success',
-                        text: `${eligibleVideos.length} videos queued for upload.`,
-                        icon: 'success',
-                        timer: 2000
-                    });
-                } catch (error) {
-                    Swal.fire({
-                        title: 'Error',
-                        text: 'Failed to queue some uploads.',
-                        icon: 'error'
-                    });
-                }
-            }
-        });
-    };
-
-    // Single Item Handlers (legacy compatible)
-    const handleDeleteVideo = (link: string) => {
-        Swal.fire({
-            title: 'Delete Draft?',
-            text: "You won't be able to revert this action!",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#ef4444',
-            cancelButtonColor: '#6b7280',
-            confirmButtonText: 'Yes, delete it',
-        }).then(async (result) => {
-            if (result.isConfirmed) {
-                try {
-                    await deleteMutation.mutateAsync(link);
-                    queryClient.invalidateQueries({ queryKey: ['draft-videos'] });
-                    // Also remove from selection if present
-                    if (selectedLinks.includes(link)) {
-                        toggleSelection(link);
-                    }
-                    Swal.fire({
-                        title: 'Deleted!',
-                        text: 'Video has been deleted.',
-                        icon: 'success',
-                        timer: 1500,
-                        showConfirmButton: false
-                    });
-                } catch (e) {
-                    // Error handled by mutation or here
-                }
-            }
-        });
+        confirmAction(`Upload ${uploadableSelected.length} videos?`, async () => {
+            await Promise.all(uploadableSelected.map(v => uploadMutation.mutateAsync({ link: v.link, id: v.id })));
+            setSelectedLinks([]);
+        }, 'Uploads queued!');
     };
 
     const handleAddVideo = async (video: Video) => {
-        // Show loading via Swal
-        Swal.fire({
-            title: 'Loading Data...',
-            text: 'Fetching video details',
-            allowOutsideClick: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
-        });
-
+        Swal.fire({ title: 'Loading...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
         try {
-            const response = await axios.get<ApiResponse<Video>>(`/draft-videos/${video.id}`);
-            if (response.data.success) {
-                const videoData = response.data.data;
-
-                const storageData = {
-                    ...videoData?.scrap_data,
-                    video_sources: [{
-                        url: videoData?.s3_key,
-                        file_size: videoData?.s3_file_size
-                    }]
-                };
-
-                localStorage.setItem('selectedVideo', JSON.stringify(storageData));
-                Swal.close();
-                router.push('/video/add');
-            } else {
-                Swal.fire({
-                    title: 'Error',
-                    text: 'Failed to fetch video details',
-                    icon: 'error'
-                });
-            }
-        } catch (error) {
-            Swal.fire({
-                title: 'Error',
-                text: 'Something went wrong fetching details',
-                icon: 'error'
-            });
+            const res = await axios.get<{ data: Video }>(`/draft-videos/${video.id}`);
+            const data = res.data.data;
+            localStorage.setItem('selectedVideo', JSON.stringify({
+                ...data?.scrap_data,
+                video_sources: [{ url: data?.s3_key, file_size: data?.s3_file_size }]
+            }));
+            Swal.close();
+            router.push('/video/add');
+        } catch {
+            Swal.fire({ title: 'Error', icon: 'error' });
         }
     };
 
-    const handleRemoteUpload = (video: Video) => {
-        Swal.fire({
-            title: 'Start Remote Upload?',
-            text: 'This will queue the video for remote upload to S3.',
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonColor: '#9333ea',
-            cancelButtonColor: '#6b7280',
-            confirmButtonText: 'Start Upload'
-        }).then(async (result) => {
-            if (result.isConfirmed) {
-                try {
-                    await remoteUploadMutation.mutateAsync({ link: video.link, id: video.id });
-                    queryClient.invalidateQueries({ queryKey: ['draft-videos'] });
-                    Swal.fire({
-                        title: 'Success',
-                        text: 'Remote upload job added successfully.',
-                        icon: 'success',
-                        confirmButtonColor: '#9333ea',
-                        timer: 2000
-                    });
-                } catch (e) {
-                    // Error handled
-                }
-            }
-        });
-    };
-
-    const closeModal = () => {
-        setIsModalOpen(false);
-        setTimeout(() => refetch(), 500);
-    };
-
-    // Derived state for bulk buttons
     const hasSelection = selectedLinks.length > 0;
-    const uploadableCount = mergedVideos.filter(v =>
-        selectedLinks.includes(v.link) &&
-        ((v.status === 'done' && v.upload_status === 'not_started') ||
-            (v.upload_status === 'stopped' || v.upload_status === 'failed'))
-    ).length;
 
     return (
-        <div className="min-h-screen bg-gray-50/50 dark:bg-gray-900/50 p-3 sm:p-4 md:p-6">
-            <div className="max-w-[1600px] mx-auto space-y-4 sm:space-y-6 md:space-y-8">
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6">
+            <div className="mx-auto space-y-6">
 
-                {/* Header Section */}
-                <div className="bg-white dark:bg-gray-800 p-4 sm:p-5 md:p-6 rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700/50 sticky top-2 sm:top-4 z-20 backdrop-blur-xl bg-white/90 dark:bg-gray-800/90">
-                    {/* Main Header Row - Title and Add button */}
-                    <div className="flex items-center justify-between gap-3 mb-3 sm:mb-4">
-                        <div className="flex-1 min-w-0">
-                            {hasSelection ? (
-                                <div className="flex items-center gap-2 sm:gap-3">
-                                    <button
-                                        onClick={clearSelection}
-                                        className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors flex-shrink-0"
-                                    >
-                                        <X className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500" />
-                                    </button>
-                                    <div>
-                                        <h1 className="text-base sm:text-xl font-bold text-gray-900 dark:text-white">
-                                            {selectedLinks.length} Selected
-                                        </h1>
-                                        <p className="text-xs text-gray-500 hidden sm:block">Select actions for items</p>
-                                    </div>
-                                </div>
-                            ) : (
-                                <>
-                                    <h1 className="text-lg sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 bg-clip-text text-transparent">
-                                        Draft Videos
-                                    </h1>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 hidden sm:block">
-                                        Manage and process your pending video uploads
-                                    </p>
-                                </>
+                {/* Header */}
+                <div className="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 sticky top-4 z-20">
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                            {hasSelection && (
+                                <button onClick={() => setSelectedLinks([])} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
+                                    <X className="w-5 h-5 text-gray-500" />
+                                </button>
                             )}
+                            <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
+                                {hasSelection ? `${selectedLinks.length} Selected` : 'Draft Videos'}
+                            </h1>
                         </div>
 
-                        {/* Add Button - Icon on mobile, full on desktop */}
-                        <button
-                            onClick={() => setIsModalOpen(true)}
-                            className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-3 sm:px-5 py-2 sm:py-2.5 rounded-lg sm:rounded-xl shadow-lg shadow-blue-600/20 hover:shadow-blue-600/30 transition-all duration-200 active:scale-95 flex-shrink-0"
-                        >
-                            <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-                            <span className="font-medium text-sm hidden sm:inline">Add Video</span>
-                        </button>
-                    </div>
-
-                    {/* Actions Row */}
-                    <div className="flex items-center gap-2 sm:gap-3 flex-wrap pt-3 sm:pt-0 border-t sm:border-t-0 border-gray-100 dark:border-gray-700">
-                        {hasSelection ? (
-                            <>
-                                {uploadableCount > 0 && (
-                                    <button
-                                        onClick={handleBulkUpload}
-                                        className="flex items-center gap-1.5 sm:gap-2 bg-purple-600 hover:bg-purple-700 text-white px-2.5 sm:px-5 py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl shadow-lg shadow-purple-600/20 transition-all duration-200 text-xs sm:text-base"
-                                    >
-                                        <Cloud className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
-                                        <span className="font-medium">Upload ({uploadableCount})</span>
+                        <div className="flex items-center gap-2">
+                            {hasSelection ? (
+                                <>
+                                    {uploadableSelected.length > 0 && (
+                                        <button onClick={handleBulkUpload} className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-xl text-sm">
+                                            <Cloud className="w-4 h-4" />
+                                            Upload ({uploadableSelected.length})
+                                        </button>
+                                    )}
+                                    <button onClick={handleBulkDelete} className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-sm">
+                                        <Trash2 className="w-4 h-4" />
+                                        Delete
                                     </button>
-                                )}
-                                <button
-                                    onClick={handleBulkDelete}
-                                    className="flex items-center gap-1.5 sm:gap-2 bg-red-600 hover:bg-red-700 text-white px-2.5 sm:px-5 py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl shadow-lg shadow-red-600/20 transition-all duration-200 text-xs sm:text-base"
-                                >
-                                    <Trash2 className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
-                                    <span className="font-medium">Delete ({selectedLinks.length})</span>
+                                </>
+                            ) : (
+                                <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl">
+                                    <Plus className="w-5 h-5" />
+                                    <span className="hidden sm:inline">Add Video</span>
                                 </button>
-                                <div className="hidden sm:block w-px h-8 bg-gray-200 dark:bg-gray-700 mx-1" />
-                            </>
-                        ) : null}
+                            )}
 
-                        {/* Standard Actions */}
-                        <button
-                            onClick={selectAll}
-                            className="p-2 sm:p-2.5 rounded-lg sm:rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200"
-                            title={selectedLinks.length === mergedVideos.length && mergedVideos.length > 0 ? "Deselect All" : "Select All"}
-                        >
-                            <CheckCircle className={`w-4 h-4 sm:w-5 sm:h-5 ${selectedLinks.length === mergedVideos.length && mergedVideos.length > 0 ? 'text-blue-600 dark:text-blue-400' : ''}`} />
-                        </button>
+                            <button onClick={selectAll} className="p-2 bg-gray-100 dark:bg-gray-700 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600">
+                                <CheckCircle className={`w-5 h-5 ${selectedLinks.length === videos.length && videos.length > 0 ? 'text-blue-600' : 'text-gray-500'}`} />
+                            </button>
 
-                        <button
-                            onClick={() => refetch()}
-                            className={`p-2 sm:p-2.5 rounded-lg sm:rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200 ${isRefetching ? 'animate-spin' : ''}`}
-                            title="Refresh List"
-                        >
-                            <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5" />
-                        </button>
+                            <button onClick={() => refetch()} className={`p-2 bg-gray-100 dark:bg-gray-700 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 ${isRefetching ? 'animate-spin' : ''}`}>
+                                <RefreshCw className="w-5 h-5 text-gray-500" />
+                            </button>
+                        </div>
                     </div>
                 </div>
 
-                {/* Content Section */}
+                {/* Content */}
                 {isLoading ? (
-                    <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                         {[...Array(8)].map((_, i) => (
-                            <div key={i} className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm border border-gray-100 dark:border-gray-700 h-64 sm:h-80 animate-pulse">
-                                <div className="h-32 sm:h-40 bg-gray-200 dark:bg-gray-700 rounded-lg sm:rounded-xl mb-3 sm:mb-4 w-full" />
-                                <div className="h-3 sm:h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2 sm:mb-3" />
-                                <div className="h-2.5 sm:h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-3 sm:mb-4" />
-                                <div className="flex gap-2 mt-auto">
-                                    <div className="h-7 sm:h-8 bg-gray-200 dark:bg-gray-700 rounded-lg flex-1" />
-                                    <div className="h-7 sm:h-8 bg-gray-200 dark:bg-gray-700 rounded-lg flex-1" />
-                                </div>
+                            <div key={i} className="bg-white dark:bg-gray-800 rounded-2xl p-4 animate-pulse">
+                                <div className="aspect-video bg-gray-200 dark:bg-gray-700 rounded-xl mb-4" />
+                                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2" />
+                                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2" />
                             </div>
                         ))}
                     </div>
-                ) : mergedVideos.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 sm:py-16 md:py-20 px-4 bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl border border-dashed border-gray-200 dark:border-gray-700">
-                        <div className="bg-gray-50 dark:bg-gray-700/50 p-4 sm:p-6 rounded-full mb-3 sm:mb-4">
-                            <VideoIcon className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 text-gray-400 dark:text-gray-500" />
-                        </div>
-                        <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-1.5 sm:mb-2">No Draft Videos</h3>
-                        <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 max-w-sm text-center">
-                            You haven't created any drafts yet. Click "Add Video" to get started with your first upload.
-                        </p>
+                ) : videos.length === 0 ? (
+                    <div className="flex flex-col items-center py-20 bg-white dark:bg-gray-800 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700">
+                        <VideoIcon className="w-12 h-12 text-gray-400 mb-4" />
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No Draft Videos</h3>
+                        <p className="text-gray-500 text-center max-w-sm">Click "Add Video" to get started.</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
-                        {mergedVideos.map((video, index) => {
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        {videos.map(video => {
                             const isSelected = selectedLinks.includes(video.link);
+                            const showUpload = isUploadable(video);
 
                             return (
                                 <div
-                                    key={video.id || index}
-                                    onClick={(e) => {
-                                        // Don't trigger if clicking buttons
-                                        if ((e.target as HTMLElement).closest('button')) return;
-                                        toggleSelection(video.link);
-                                    }}
-                                    className={`group relative bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl shadow-sm border transition-all duration-300 overflow-hidden flex flex-col cursor-pointer
-                                        ${isSelected
-                                            ? 'border-blue-500 ring-2 ring-blue-500/20 shadow-xl'
-                                            : 'border-gray-100 dark:border-gray-700 hover:shadow-xl hover:shadow-gray-200/50 dark:hover:shadow-gray-900/50 hover:border-blue-500/30'
-                                        }
-                                    `}
+                                    key={video.id}
+                                    onClick={(e) => { if (!(e.target as HTMLElement).closest('button')) toggleSelect(video.link); }}
+                                    className={`group bg-white dark:bg-gray-800 rounded-2xl overflow-hidden cursor-pointer transition-all border-2 
+                                        ${isSelected ? 'border-blue-500 shadow-lg' : 'border-transparent hover:border-blue-300 hover:shadow-md'}`}
                                 >
-                                    {/* Thumbnail Section */}
-                                    <div className="relative aspect-video overflow-hidden bg-gray-100 dark:bg-gray-700">
-                                        <img
-                                            src={video.thumbnail}
-                                            alt={video.title}
-                                            className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
-                                            loading="lazy"
-                                        />
+                                    {/* Thumbnail */}
+                                    <div className="relative aspect-video bg-gray-100 dark:bg-gray-700">
+                                        <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover" loading="lazy" />
 
-                                        {/* Overlay Gradient */}
-                                        <div className={`absolute inset-0 bg-gradient-to-t from-gray-900/80 via-transparent to-transparent transition-opacity duration-300 ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} />
-
-                                        {/* Upload Progress Bar */}
-                                        {(video.upload_status === 'uploading') && (
-                                            <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-gray-800/80 backdrop-blur-sm overflow-hidden">
+                                        {/* Progress bar */}
+                                        {['uploading', 'downloading'].includes(video.upload_status) && (
+                                            <div className="absolute bottom-0 inset-x-0 h-1 bg-gray-800/50">
                                                 <div
-                                                    className="h-full bg-gradient-to-r from-blue-500 via-blue-400 to-blue-600 transition-all duration-300 ease-out relative"
+                                                    className={`h-full ${video.upload_status === 'uploading' ? 'bg-blue-500' : 'bg-red-500'}`}
                                                     style={{ width: `${video.upload_progress || 0}%` }}
-                                                >
-                                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-[shimmer_2s_infinite]" style={{
-                                                        backgroundSize: '200% 100%',
-                                                        animation: 'shimmer 2s linear infinite'
-                                                    }} />
-                                                </div>
+                                                />
                                             </div>
                                         )}
 
-                                        {/* Download Progress Bar */}
-                                        {(video.upload_status === 'downloading') && (
-                                            <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-gray-800/80 backdrop-blur-sm overflow-hidden">
-                                                <div
-                                                    className="h-full bg-gradient-to-r from-red-500 via-red-400 to-red-600 transition-all duration-300 ease-out relative"
-                                                    style={{ width: `${video.upload_progress || 0}%` }}
-                                                >
-                                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent" style={{
-                                                        backgroundSize: '200% 100%',
-                                                        animation: 'shimmer 2s linear infinite'
-                                                    }} />
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Selection Checkbox */}
-                                        <div className="absolute top-2 left-2 sm:top-3 sm:left-3 z-10">
-                                            <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${isSelected ? 'bg-blue-500 border-blue-500' : 'bg-black/30 border-white/70 hover:bg-black/50'}`}>
-                                                {isSelected && <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 text-white" />}
-                                            </div>
+                                        {/* Selection indicator */}
+                                        <div className={`absolute top-2 left-2 w-6 h-6 rounded-full border-2 flex items-center justify-center transition
+                                            ${isSelected ? 'bg-blue-500 border-blue-500' : 'bg-black/30 border-white/70'}`}>
+                                            {isSelected && <CheckCircle className="w-4 h-4 text-white" />}
                                         </div>
 
-                                        {/* Status Badges - Top Right */}
-                                        <div className="absolute top-2 right-2 sm:top-3 sm:right-3 flex flex-col gap-1.5 sm:gap-2">
-                                            <div className={`backdrop-blur-md px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-semibold shadow-sm flex items-center gap-1 sm:gap-1.5 border ${video.status === 'done'
-                                                ? 'bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400'
-                                                : video.status === 'pending'
-                                                    ? 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
-                                                    : 'bg-gray-500/10 border-gray-500/20 text-gray-600 dark:text-gray-400'
-                                                }`}>
-                                                <span className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full ${video.status === 'done' ? 'bg-green-500' :
-                                                    video.status === 'pending' ? 'bg-amber-500' : 'bg-gray-500'
-                                                    }`} />
-                                                {video.status}
-                                            </div>
-                                        </div>
+                                        {/* Status badge */}
+                                        <span className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-xs font-medium
+                                            ${video.status === 'done' ? 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400'}`}>
+                                            {video.status}
+                                        </span>
 
-                                        {/* Time - Bottom Left Overlay */}
-                                        <div className={`absolute bottom-2 left-2 sm:bottom-3 sm:left-3 transition-opacity duration-300 ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-                                            <span className="text-white text-[10px] sm:text-xs font-medium bg-black/50 backdrop-blur-md px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md sm:rounded-lg">
-                                                {timeAgo(video.datetime)}
-                                            </span>
-                                        </div>
+                                        {/* Time */}
+                                        <span className="absolute bottom-2 left-2 text-xs text-white bg-black/50 px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition">
+                                            {timeAgo(video.datetime)}
+                                        </span>
                                     </div>
 
-                                    {/* Content Section */}
-                                    <div className="p-3 sm:p-4 md:p-5 flex flex-col flex-1">
-                                        <div className="mb-2 sm:mb-3 md:mb-4 flex-1">
-                                            <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm sm:text-base line-clamp-2 leading-snug mb-1.5 sm:mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors" title={video.title}>
-                                                {video.title}
-                                            </h3>
+                                    {/* Content */}
+                                    <div className="p-4">
+                                        <h3 className="font-semibold text-gray-900 dark:text-white text-sm line-clamp-2 mb-2">{video.title}</h3>
 
-                                            {/* Upload Status Badge */}
-                                            {video.upload_status && (
-                                                <div className="flex items-center gap-1.5 sm:gap-2 mt-1.5 sm:mt-2">
-                                                    <div className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[9px] sm:text-[10px] font-medium uppercase tracking-wider flex items-center gap-1 sm:gap-1.5 border ${video.upload_status === 'completed' ? 'bg-green-50 text-green-700 border-green-100 dark:bg-green-900/20 dark:text-green-400 dark:border-green-900/30' :
-                                                        video.upload_status === 'failed' ? 'bg-red-50 text-red-700 border-red-100 dark:bg-red-900/20 dark:text-red-400 dark:border-red-900/30' :
-                                                            ['downloading', 'uploading'].includes(video.upload_status) ? 'bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-900/30' :
-                                                                'bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-900/30'
-                                                        }`}>
-                                                        <Cloud className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                                                        {video.upload_status}
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
+                                        {video.upload_status && video.upload_status !== 'not_started' && (
+                                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium
+                                                ${video.upload_status === 'completed' ? 'bg-green-100 text-green-700' :
+                                                    video.upload_status === 'failed' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+                                                <Cloud className="w-3 h-3" />
+                                                {video.upload_status}
+                                            </span>
+                                        )}
 
-                                        {/* Actions Grid */}
-                                        <div className="grid grid-cols-4 gap-1.5 sm:gap-2 mt-auto pt-2.5 sm:pt-3 md:pt-4 border-t border-gray-100 dark:border-gray-700/50">
+                                        {/* Actions */}
+                                        <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100 dark:border-gray-700">
                                             {video.status === 'done' && (
-                                                <button
-                                                    onClick={() => handleAddVideo(video)}
-                                                    className="col-span-1 flex flex-col items-center justify-center p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors group/btn active:scale-95"
-                                                    title="Add to Library"
-                                                >
-                                                    <Plus className="w-4 h-4 sm:w-5 sm:h-5 mb-0 sm:mb-0.5 group-hover/btn:scale-110 transition-transform" />
-                                                    <span className="text-[8px] sm:text-[10px] font-medium hidden xs:block">Add</span>
+                                                <button onClick={() => handleAddVideo(video)} className="flex-1 p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400" title="Add">
+                                                    <Plus className="w-4 h-4 mx-auto" />
                                                 </button>
                                             )}
-
-                                            {((video.status === 'done' && video.upload_status === 'not_started') || (video.upload_status === 'stopped' || video.upload_status === 'failed')) && (
-                                                <button
-                                                    onClick={() => handleRemoteUpload(video)}
-                                                    className="col-span-1 flex flex-col items-center justify-center p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors group/btn active:scale-95"
-                                                    title="Remote Upload"
-                                                >
-                                                    <Upload className="w-4 h-4 sm:w-5 sm:h-5 mb-0 sm:mb-0.5 group-hover/btn:scale-110 transition-transform" />
-                                                    <span className="text-[8px] sm:text-[10px] font-medium hidden xs:block">{video.upload_status === 'stopped' || video.upload_status === 'failed' ? 'Retry' : 'Upload'}</span>
+                                            {showUpload && (
+                                                <button onClick={() => handleUpload(video)} className="flex-1 p-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 dark:bg-purple-900/20 dark:text-purple-400" title="Upload">
+                                                    <Upload className="w-4 h-4 mx-auto" />
                                                 </button>
                                             )}
-
-                                            <button
-                                                onClick={() => window.open(`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(video.title)}`, '_blank')}
-                                                className="col-span-1 flex flex-col items-center justify-center p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors group/btn active:scale-95"
-                                                title="Search Images"
-                                            >
-                                                <Search className="w-4 h-4 sm:w-5 sm:h-5 mb-0 sm:mb-0.5 group-hover/btn:scale-110 transition-transform" />
-                                                <span className="text-[8px] sm:text-[10px] font-medium hidden xs:block">Search</span>
+                                            <button onClick={() => window.open(`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(video.title)}`, '_blank')} className="flex-1 p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400" title="Search">
+                                                <Search className="w-4 h-4 mx-auto" />
                                             </button>
-
-                                            <button
-                                                onClick={() => handleDeleteVideo(video.link)}
-                                                className="col-span-1 flex flex-col items-center justify-center p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-red-50 text-red-500 dark:bg-red-900/20 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors group/btn active:scale-95"
-                                                title="Delete Draft"
-                                            >
-                                                <Trash2 className="w-4 h-4 sm:w-5 sm:h-5 mb-0 sm:mb-0.5 group-hover/btn:scale-110 transition-transform" />
-                                                <span className="text-[8px] sm:text-[10px] font-medium hidden xs:block">Delete</span>
+                                            <button onClick={() => handleDelete(video.link)} className="flex-1 p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400" title="Delete">
+                                                <Trash2 className="w-4 h-4 mx-auto" />
                                             </button>
                                         </div>
                                     </div>
                                 </div>
-                            )
+                            );
                         })}
                     </div>
                 )}
             </div>
 
-            {/* Modals */}
-            <VideoSelectModal
-                isOpen={isModalOpen}
-                onClose={closeModal}
-            />
+            <VideoSelectModal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setTimeout(() => refetch(), 500); }} />
         </div>
     );
 }
