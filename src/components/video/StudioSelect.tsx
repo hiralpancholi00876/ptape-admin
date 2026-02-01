@@ -53,10 +53,6 @@ const StudioSelect: React.FC<StudioSelectProps> = ({ control }) => {
                         onChange={(selectedOptions) => {
                             field.onChange(selectedOptions || []);
                         }}
-                        onKeyDown={(e) => {
-                            // Prevent event propagation that could affect other components
-                            e.stopPropagation();
-                        }}
                     />
                 )}
             />

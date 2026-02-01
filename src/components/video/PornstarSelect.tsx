@@ -56,10 +56,6 @@ const PornstarDetails: React.FC<PornstarDetailsProps> = ({ control, errors }) =>
                             onChange={(selectedOptions) => {
                                 field.onChange(selectedOptions || []);
                             }}
-                            onKeyDown={(e) => {
-                                // Prevent event propagation that could affect other components
-                                e.stopPropagation();
-                            }}
                         />
                         {errors.pornstars?.message && (
                             <p className="text-red-500 text-sm mt-1">{String(errors.pornstars.message)}</p>

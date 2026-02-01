@@ -62,10 +62,6 @@ const CategoryDetails: React.FC<CategoryDetailsProps> = ({
                             onChange={(selectedOptions) => {
                                 field.onChange(selectedOptions || []);
                             }}
-                            onKeyDown={(e) => {
-                                // Prevent event propagation that could affect other components
-                                e.stopPropagation();
-                            }}
                         />
                         {errors.categories?.message && (
                             <p className="text-red-500 text-sm mt-1">
