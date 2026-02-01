@@ -7,9 +7,10 @@ import { Menu, X } from 'lucide-react';
 
 const AppHeader: React.FC = () => {
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
+  const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 1024;
 
   const handleToggle = () => {
-    if (window.innerWidth >= 1024) {
+    if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
       toggleSidebar();
     } else {
       toggleMobileSidebar();
@@ -20,13 +21,13 @@ const AppHeader: React.FC = () => {
     <header className="sticky top-0 z-40 flex items-center justify-between w-full h-16 px-4 lg:px-6 bg-white/90 backdrop-blur-md border-b border-gray-200 dark:bg-gray-900/90 dark:border-gray-800">
       {/* Left: Toggle + Logo */}
       <div className="flex items-center gap-3">
-        {isMobileOpen && <button
+        {!isDesktop && <button
           onClick={handleToggle}
           className="p-2 text-gray-600 rounded-lg hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors"
           aria-label="Toggle Sidebar"
         >
-           <X size={22} /> 
-        </button> }
+          {isMobileOpen ? <X size={22} /> : <Menu size={22} />}
+        </button>}
 
         <Link href="/" className="lg:hidden flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center">
