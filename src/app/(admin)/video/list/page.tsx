@@ -8,7 +8,8 @@ import { formatDuration, convertNumberToSuffix, timeAgo } from "@/utils/commonFu
 import {
   Pencil, Trash, Eye, Clock, Plus, Flag, FlagOff,
   CheckSquare, Square, Loader2, X,
-  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search,
+  Cloud
 } from 'lucide-react';
 import axios from "@/utils/axios";
 import Swal from 'sweetalert2';
@@ -255,19 +256,6 @@ export default function VideoListPage() {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
-          {videoList.length > 0 && (
-            <button
-              onClick={toggleSelectAll}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap ${selectedVideos.length === videoList.length
-                  ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
-                }`}
-            >
-              {selectedVideos.length === videoList.length ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
-              <span className="hidden sm:inline">{selectedVideos.length === videoList.length ? 'Deselect All' : 'Select All'}</span>
-            </button>
-          )}
-
           <button
             onClick={() => redirect("/video/add")}
             className="flex items-center gap-1.5 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 text-sm font-medium whitespace-nowrap"
@@ -280,8 +268,21 @@ export default function VideoListPage() {
             onClick={() => redirect("/video/drafts")}
             className="flex items-center gap-1.5 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 text-sm font-medium whitespace-nowrap"
           >
+            <Cloud className="h-4 w-4" />
             <span>Drafts</span>
           </button>
+          {videoList.length > 0 && (
+            <button
+              onClick={toggleSelectAll}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap ${selectedVideos.length === videoList.length
+                ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
+                }`}
+            >
+              {selectedVideos.length === videoList.length ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+              <span className="hidden sm:inline">{selectedVideos.length === videoList.length ? 'Deselect All' : 'Select All'}</span>
+            </button>
+          )}
         </div>
       </div>
 

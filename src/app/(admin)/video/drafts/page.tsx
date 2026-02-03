@@ -259,12 +259,12 @@ export default function DirectUploadPage() {
                                     <div className="p-4">
                                         <h3 className="font-semibold text-gray-900 dark:text-white text-sm line-clamp-2 mb-2">{video.title}</h3>
 
-                                        {video.upload_status && video.upload_status !== 'not_started' && (
+                                        {video.upload_status && (
                                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium
                                                 ${video.upload_status === 'completed' ? 'bg-green-100 text-green-700' :
                                                     video.upload_status === 'failed' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
                                                 <Cloud className="w-3 h-3" />
-                                                {video.upload_status}
+                                                {video.upload_status === 'not_started' ? 'Not Started' : video.upload_status}
                                             </span>
                                         )}
 
