@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { Plus, RefreshCw, Trash2, Search, Upload, Video as VideoIcon, Cloud, CheckCircle, X } from 'lucide-react';
 import { VideoSelectModal } from './VideoSelectModal';
 import axios from '@/utils/axios';
@@ -37,6 +38,25 @@ export default function DirectUploadPage() {
     const queryClient = useQueryClient();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedLinks, setSelectedLinks] = useState<string[]>([]);
+    const [showScrollButton, setShowScrollButton] = useState(false);
+    const bottomRef = useRef<HTMLDivElement>(null);
+    // Scroll to bottom button logic
+    useEffect(() => {
+        const handleScroll = () => {
+            const scrollY = window.scrollY;
+            const windowHeight = window.innerHeight;
+            const bodyHeight = document.body.offsetHeight;
+            // Show button if not at the bottom (with a small threshold)
+            setShowScrollButton(scrollY + windowHeight < bodyHeight - 100);
+        };
+        window.addEventListener('scroll', handleScroll);
+        handleScroll();
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
+
+    const handleScrollToBottom = () => {
+        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    };
 
     // Fetch videos
     const { data: mainVideos = [], isLoading, isRefetching, refetch } = useQuery({
@@ -296,6 +316,20 @@ export default function DirectUploadPage() {
             </div>
 
             <VideoSelectModal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setTimeout(() => refetch(), 500); }} />
+            {/* Scroll to bottom button */}
+            {showScrollButton && (
+                <button
+                    onClick={handleScrollToBottom}
+                    className="fixed bottom-8 right-8 z-50 bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-full shadow-lg transition-all flex items-center justify-center"
+                    aria-label="Scroll to bottom"
+                >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+            )}
+            {/* Bottom anchor for scroll */}
+            <div ref={bottomRef} />
         </div>
     );
 }
