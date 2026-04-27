@@ -150,6 +150,7 @@ export default function DirectUploadPage() {
         try {
             const res = await axios.get<{ data: Video }>(`/draft-videos/${video.id}`);
             const data = res.data.data;
+            
             localStorage.setItem('selectedVideo', JSON.stringify({
                 ...data?.scrap_data,
                 video_sources: [{ url: data?.s3_key, file_size: data?.s3_file_size, file_type: data.webhook_data?.type || 'mp4', server: data.webhook_data?.server }],
