@@ -106,9 +106,9 @@ export default function AddVideo() {
             setValue('videoSources', draftVideoData.video_sources.map((source: any) => ({
               id: null,
               file_size: source.file_size || null,
-              file_type: "mp4",
+              file_type: source.file_type || "mp4",
               quality: "720p",
-              url: "https://s3.g.s4.mega.io/ik5bce3kkygi7zhpn45k5mm6f3gzag73evpgg/ptape-uploads/" + source.url || ""
+              url: source.server == 'smoothpre' ? "https://smoothpre.com/embed/" + source.url : "https://s3.g.s4.mega.io/ik5bce3kkygi7zhpn45k5mm6f3gzag73evpgg/ptape-uploads/" + source.url
             })));
           }
 

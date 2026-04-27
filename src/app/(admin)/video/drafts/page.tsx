@@ -152,7 +152,7 @@ export default function DirectUploadPage() {
             const data = res.data.data;
             localStorage.setItem('selectedVideo', JSON.stringify({
                 ...data?.scrap_data,
-                video_sources: [{ url: data?.s3_key, file_size: data?.s3_file_size }]
+                video_sources: [{ url: data?.s3_key, file_size: data?.s3_file_size, file_type: data.webhook_data?.type || 'mp4', server: data.webhook_data?.server }],
             }));
             Swal.close();
             router.push('/video/add');

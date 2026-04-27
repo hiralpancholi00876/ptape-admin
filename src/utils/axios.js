@@ -23,7 +23,11 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
     (response) => response,
     (error) => {
-        // Handle global errors here
+        if (error.response && error.response.status === 401) {
+            if (typeof window !== 'undefined') {
+                window.location.href = '/login';
+            }
+        }
         return Promise.reject(error);
     }
 );
