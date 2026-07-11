@@ -33,13 +33,42 @@ interface VideoStatus {
     upload_progress: number;
 }
 
+const STATUS_FILTER_KEY = 'draftVideosStatusFilter';
+
+const STATUS_FILTER_OPTIONS: { value: string; label: string }[] = [
+    { value: 'all', label: 'All Status' },
+    { value: 'not_started', label: 'Not Started' },
+    { value: 'queued', label: 'Queued' },
+    { value: 'downloading', label: 'Downloading' },
+    { value: 'ffmpeg', label: 'FFmpeg' },
+    { value: 'uploading', label: 'Uploading' },
+    { value: 'completed', label: 'Completed' },
+    { value: 'failed', label: 'Failed' },
+    { value: 'stopped', label: 'Stopped' },
+];
+
 export default function DirectUploadPage() {
     const router = useRouter();
     const queryClient = useQueryClient();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedLinks, setSelectedLinks] = useState<string[]>([]);
     const [showScrollButton, setShowScrollButton] = useState(false);
+    const [statusFilter, setStatusFilter] = useState('all');
     const bottomRef = useRef<HTMLDivElement>(null);
+
+    // Restore status filter from localStorage
+    useEffect(() => {
+        const saved = localStorage.getItem(STATUS_FILTER_KEY);
+        if (saved && STATUS_FILTER_OPTIONS.some(o => o.value === saved)) {
+            setStatusFilter(saved);
+        }
+    }, []);
+
+    const handleStatusFilterChange = (value: string) => {
+        setStatusFilter(value);
+        localStorage.setItem(STATUS_FILTER_KEY, value);
+    };
+
     // Scroll to bottom button logic
     useEffect(() => {
         const handleScroll = () => {
@@ -79,6 +108,10 @@ export default function DirectUploadPage() {
         return update ? { ...video, ...update } : video;
     });
 
+    const filteredVideos = statusFilter === 'all'
+        ? videos
+        : videos.filter(v => v.upload_status === statusFilter);
+
     // Mutations
     const deleteMutation = useMutation({
         mutationFn: (link: string) => axios.post('/delete-draft-video', { link }),
@@ -98,7 +131,7 @@ export default function DirectUploadPage() {
         setSelectedLinks(prev => prev.includes(link) ? prev.filter(l => l !== link) : [...prev, link]);
 
     const selectAll = () =>
-        setSelectedLinks(selectedLinks.length === videos.length ? [] : videos.map(v => v.link));
+        setSelectedLinks(selectedLinks.length === filteredVideos.length ? [] : filteredVideos.map(v => v.link));
 
     const uploadableSelected = videos.filter(v => selectedLinks.includes(v.link) && isUploadable(v));
 
@@ -183,6 +216,16 @@ export default function DirectUploadPage() {
                         </div>
 
                         <div className="flex items-center gap-2">
+                            <select
+                                value={statusFilter}
+                                onChange={(e) => handleStatusFilterChange(e.target.value)}
+                                className="h-10 appearance-none rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 px-3 pr-8 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/30 cursor-pointer"
+                            >
+                                {STATUS_FILTER_OPTIONS.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                            </select>
+
                             {hasSelection ? (
                                 <>
                                     {uploadableSelected.length > 0 && (
@@ -204,7 +247,7 @@ export default function DirectUploadPage() {
                             )}
 
                             <button onClick={selectAll} className="p-2 bg-gray-100 dark:bg-gray-700 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600">
-                                <CheckCircle className={`w-5 h-5 ${selectedLinks.length === videos.length && videos.length > 0 ? 'text-blue-600' : 'text-gray-500'}`} />
+                                <CheckCircle className={`w-5 h-5 ${selectedLinks.length === filteredVideos.length && filteredVideos.length > 0 ? 'text-blue-600' : 'text-gray-500'}`} />
                             </button>
 
                             <button onClick={() => refetch()} className={`p-2 bg-gray-100 dark:bg-gray-700 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 ${isRefetching ? 'animate-spin' : ''}`}>
@@ -225,15 +268,21 @@ export default function DirectUploadPage() {
                             </div>
                         ))}
                     </div>
-                ) : videos.length === 0 ? (
+                ) : filteredVideos.length === 0 ? (
                     <div className="flex flex-col items-center py-20 bg-white dark:bg-gray-800 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700">
                         <VideoIcon className="w-12 h-12 text-gray-400 mb-4" />
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No Draft Videos</h3>
-                        <p className="text-gray-500 text-center max-w-sm">Click "Add Video" to get started.</p>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                            {videos.length === 0 ? 'No Draft Videos' : 'No Matching Videos'}
+                        </h3>
+                        <p className="text-gray-500 text-center max-w-sm">
+                            {videos.length === 0
+                                ? 'Click "Add Video" to get started.'
+                                : 'Try a different status filter.'}
+                        </p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                        {videos.map(video => {
+                        {filteredVideos.map(video => {
                             const isSelected = selectedLinks.includes(video.link);
                             const showUpload = isUploadable(video);
 
