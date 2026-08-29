@@ -108,7 +108,7 @@ export default function AddVideo() {
               file_size: source.file_size || null,
               file_type: source.file_type || "mp4",
               quality: "720p",
-              url: source.server == 'smoothpre' ? "https://smoothpre-cdn.hyper-flash.workers.dev/" + source.url : "https://s3.g.s4.mega.io/ik5bce3kkygi7zhpn45k5mm6f3gzag73evpgg/ptape-uploads/" + source.url
+              url: source.server == 'smoothpre' ? "https://smoothpre-cdn.hyper-flash.workers.dev/" + source.url : "https://video-cdn.rapid-access.online/" + source.url
             })));
           }
 
