@@ -21,9 +21,6 @@ interface VideoFormData {
   // Video Details
   title: string;
   description: string | null;
-  // Video Metadata
-  meta_title: string;
-  meta_description: string;
 
   datetime: string;
   duration: string;
@@ -60,8 +57,6 @@ export default function AddVideo() {
     defaultValues: {
       title: '',
       description: '',
-      meta_title: '',
-      meta_description: '',
       datetime: '',
       duration: '00:00:00',
       studios: [],
@@ -88,8 +83,6 @@ export default function AddVideo() {
           const draftVideoData = JSON.parse(storedData);
           
           if (draftVideoData.title) setValue('title', draftVideoData.title);
-          if (draftVideoData.meta_title) setValue('meta_title', draftVideoData.meta_title);
-          if (draftVideoData.meta_description) setValue('meta_description', draftVideoData.meta_description);
           if (draftVideoData.datetime) setValue('datetime', draftVideoData.datetime);
           if (draftVideoData.duration) setValue('duration', draftVideoData.duration);
 
@@ -124,8 +117,6 @@ export default function AddVideo() {
     let sendData = {
       title: data.title,
       description: data.description || null,
-      meta_title: data.meta_title || null,
-      meta_description: data.meta_description || null,
       upload_datetime: toUTC(data.datetime),
       duration: data.duration,
       studios: data.studios.map(studio => studio.label),
@@ -177,8 +168,6 @@ export default function AddVideo() {
         if (data.thumbnail) setValue('thumbnail', data.thumbnail);
         if (data.duration) setValue('duration', data.duration);
         if (data.datetime) setValue('datetime', data.datetime);
-        if (data.meta_title) setValue('meta_title', data.meta_title);
-        if (data.meta_description) setValue('meta_description', data.meta_description);
 
         if (data.studios && Array.isArray(data.studios)) {
           setValue('studios', data.studios.map((studio: any) => ({ value: studio, label: studio })));

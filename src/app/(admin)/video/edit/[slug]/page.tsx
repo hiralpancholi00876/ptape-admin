@@ -27,8 +27,6 @@ import {
 interface VideoFormData {
     title: string;
     description: string;
-    meta_title: string;
-    meta_description: string;
     datetime: string;
     duration: string;
     studios: { value: string; label: string }[];
@@ -68,8 +66,6 @@ export default function EditVideoPage({
                     const videoData = response.data.data;
                     setValue("title", videoData.title);
                     setValue("description", videoData.description);
-                    setValue("meta_title", videoData.meta_title || '');
-                    setValue("meta_description", videoData.meta_description || '');
                     setValue("datetime", toLocal(videoData.upload_date));
                     setValue("duration", formatDuration(videoData.duration));
                     setValue("studios", videoData.studios.map((studio: string, index: number) => ({ value: studio + index, label: studio })));
@@ -108,8 +104,6 @@ export default function EditVideoPage({
             slug: slug,
             title: data.title,
             description: data.description,
-            meta_title: data.meta_title || null,
-            meta_description: data.meta_description || null,
             upload_datetime: toUTC(data.datetime),
             duration: data.duration,
             studios: data.studios.map((studio) => studio.label),

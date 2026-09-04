@@ -50,43 +50,6 @@ const VideoDetails: React.FC<VideoDetailsProps> = ({ control, errors }) => {
         )}
       />
 
-      <Label className="mt-3">Meta Title</Label>
-      <Controller
-        name="meta_title"
-        control={control}
-        render={({ field }) => (
-          <>
-            <Input
-              type="text"
-              placeholder="Enter meta title"
-              value={field.value}
-              onChange={(e) => field.onChange(e.target.value)}
-            />
-            {errors.meta_title?.message && (
-              <p className="text-red-500 text-sm mt-1">{String(errors.meta_title.message)}</p>
-            )}
-          </>
-        )}
-      />
-
-      <Label className="mt-3">Meta Description</Label>
-      <Controller
-        name="meta_description"
-        control={control}
-        render={({ field }) => (
-          <>
-            <TextArea
-              placeholder="Enter meta description"
-              value={field.value}
-              onChange={(value) => field.onChange(value)}
-            />
-            {errors.meta_description?.message && (
-              <p className="text-red-500 text-sm mt-1">{String(errors.meta_description.message)}</p>
-            )}
-          </>
-        )}
-      />
-
       <Controller
         name="datetime"
         control={control}
