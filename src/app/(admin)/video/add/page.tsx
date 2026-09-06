@@ -83,7 +83,15 @@ export default function AddVideo() {
           const draftVideoData = JSON.parse(storedData);
           
           if (draftVideoData.title) setValue('title', draftVideoData.title);
-          if (draftVideoData.description) setValue('description', draftVideoData.description || draftVideoData.meta_description);
+          if (draftVideoData.description || draftVideoData.meta_description) {
+            setValue(
+              'description',
+              draftVideoData.description && draftVideoData.description.trim() !== ''
+                ? draftVideoData.description
+                : draftVideoData.meta_description
+            );
+          }
+     
           if (draftVideoData.datetime) setValue('datetime', draftVideoData.datetime);
           if (draftVideoData.duration) setValue('duration', draftVideoData.duration);
 
