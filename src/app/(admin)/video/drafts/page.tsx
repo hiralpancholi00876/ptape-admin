@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useEffect, useRef } from 'react';
-import { Plus, RefreshCw, Trash2, Search, Upload, Video as VideoIcon, Cloud, CheckCircle, X } from 'lucide-react';
+import { Plus, RefreshCw, Trash2, Search, Upload, Video as VideoIcon, Cloud, CheckCircle, X, Star } from 'lucide-react';
 import { VideoSelectModal } from './VideoSelectModal';
 import axios from '@/utils/axios';
 import Swal from 'sweetalert2';
@@ -34,6 +34,7 @@ interface VideoStatus {
 }
 
 const STATUS_FILTER_KEY = 'draftVideosStatusFilter';
+const BEST_LINKS_KEY = 'draftVideosBestLinks';
 
 const STATUS_FILTER_OPTIONS: { value: string; label: string }[] = [
     { value: 'all', label: 'All Status' },
@@ -45,7 +46,19 @@ const STATUS_FILTER_OPTIONS: { value: string; label: string }[] = [
     { value: 'completed', label: 'Completed' },
     { value: 'failed', label: 'Failed' },
     { value: 'stopped', label: 'Stopped' },
+    { value: 'best', label: 'Best Video' },
 ];
+
+function readBestLinks(): string[] {
+    try {
+        const raw = localStorage.getItem(BEST_LINKS_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed.filter((l): l is string => typeof l === 'string') : [];
+    } catch {
+        return [];
+    }
+}
 
 export default function DirectUploadPage() {
     const router = useRouter();
@@ -54,19 +67,37 @@ export default function DirectUploadPage() {
     const [selectedLinks, setSelectedLinks] = useState<string[]>([]);
     const [showScrollButton, setShowScrollButton] = useState(false);
     const [statusFilter, setStatusFilter] = useState('all');
+    const [bestLinks, setBestLinks] = useState<string[]>([]);
     const bottomRef = useRef<HTMLDivElement>(null);
 
-    // Restore status filter from localStorage
+    // Restore status filter and best links from localStorage
     useEffect(() => {
         const saved = localStorage.getItem(STATUS_FILTER_KEY);
         if (saved && STATUS_FILTER_OPTIONS.some(o => o.value === saved)) {
             setStatusFilter(saved);
         }
+        setBestLinks(readBestLinks());
     }, []);
 
     const handleStatusFilterChange = (value: string) => {
         setStatusFilter(value);
         localStorage.setItem(STATUS_FILTER_KEY, value);
+    };
+
+    const persistBestLinks = (links: string[]) => {
+        setBestLinks(links);
+        localStorage.setItem(BEST_LINKS_KEY, JSON.stringify(links));
+    };
+
+    const isBest = (link: string) => bestLinks.includes(link);
+
+    const toggleBest = (links: string[]) => {
+        const allAlreadyBest = links.length > 0 && links.every(l => bestLinks.includes(l));
+        const next = allAlreadyBest
+            ? bestLinks.filter(l => !links.includes(l))
+            : Array.from(new Set([...bestLinks, ...links]));
+        persistBestLinks(next);
+        setSelectedLinks([]);
     };
 
     // Scroll to bottom button logic
@@ -108,9 +139,13 @@ export default function DirectUploadPage() {
         return update ? { ...video, ...update } : video;
     });
 
-    const filteredVideos = statusFilter === 'all'
-        ? videos
-        : videos.filter(v => v.upload_status === statusFilter);
+    const nonBest = videos.filter(v => !bestLinks.includes(v.link));
+    const filteredVideos =
+        statusFilter === 'best'
+            ? videos.filter(v => bestLinks.includes(v.link))
+            : statusFilter === 'all'
+                ? nonBest
+                : nonBest.filter(v => v.upload_status === statusFilter);
 
     // Mutations
     const deleteMutation = useMutation({
@@ -196,6 +231,7 @@ export default function DirectUploadPage() {
     };
 
     const hasSelection = selectedLinks.length > 0;
+    const allSelectedAreBest = selectedLinks.length > 0 && selectedLinks.every(l => bestLinks.includes(l));
 
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6">
@@ -228,6 +264,13 @@ export default function DirectUploadPage() {
 
                             {hasSelection ? (
                                 <>
+                                    <button
+                                        onClick={() => toggleBest(selectedLinks)}
+                                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm text-white ${allSelectedAreBest ? 'bg-amber-500 hover:bg-amber-600' : 'bg-amber-600 hover:bg-amber-700'}`}
+                                    >
+                                        <Star className={`w-4 h-4 ${allSelectedAreBest ? 'fill-current' : ''}`} />
+                                        {allSelectedAreBest ? 'Unmark Best' : 'Best Video'} ({selectedLinks.length})
+                                    </button>
                                     {uploadableSelected.length > 0 && (
                                         <button onClick={handleBulkUpload} className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-xl text-sm">
                                             <Cloud className="w-4 h-4" />
@@ -272,12 +315,18 @@ export default function DirectUploadPage() {
                     <div className="flex flex-col items-center py-20 bg-white dark:bg-gray-800 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700">
                         <VideoIcon className="w-12 h-12 text-gray-400 mb-4" />
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                            {videos.length === 0 ? 'No Draft Videos' : 'No Matching Videos'}
+                            {videos.length === 0
+                                ? 'No Draft Videos'
+                                : statusFilter === 'best'
+                                    ? 'No Best Videos'
+                                    : 'No Matching Videos'}
                         </h3>
                         <p className="text-gray-500 text-center max-w-sm">
                             {videos.length === 0
                                 ? 'Click "Add Video" to get started.'
-                                : 'Try a different status filter.'}
+                                : statusFilter === 'best'
+                                    ? 'No best videos marked yet. Select drafts and click Best Video to mark them.'
+                                    : 'Try a different status filter.'}
                         </p>
                     </div>
                 ) : (
@@ -285,6 +334,7 @@ export default function DirectUploadPage() {
                         {filteredVideos.map(video => {
                             const isSelected = selectedLinks.includes(video.link);
                             const showUpload = isUploadable(video);
+                            const videoIsBest = isBest(video.link);
 
                             return (
                                 <div
@@ -312,6 +362,14 @@ export default function DirectUploadPage() {
                                             ${isSelected ? 'bg-blue-500 border-blue-500' : 'bg-black/30 border-white/70'}`}>
                                             {isSelected && <CheckCircle className="w-4 h-4 text-white" />}
                                         </div>
+
+                                        {/* Best video badge */}
+                                        {videoIsBest && (
+                                            <span className="absolute bottom-2 right-2 flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400">
+                                                <Star className="w-3 h-3 fill-current" />
+                                                Best
+                                            </span>
+                                        )}
 
                                         {/* Status badge */}
                                         <span className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-xs font-medium
