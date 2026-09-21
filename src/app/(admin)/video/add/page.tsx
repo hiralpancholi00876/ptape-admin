@@ -1,18 +1,18 @@
 'use client';
 import Swal from 'sweetalert2';
-import { useForm, Controller } from "react-hook-form";
-import ComponentCard from "@/components/common/ComponentCard";
-import VideoSourceManager from "@/components/video/VideoSourceManager";
-import VideoDetailsInputs from "@/components/video/VideoDetailsInputs";
-import StudioSelect from "@/components/video/StudioSelect";
-import PornstarSelect from "@/components/video/PornstarSelect";
-import PosterFetch from "@/components/video/PosterFetch";
-import ScrapDetails from "@/components/video/ScrapDetails";
-import React, { useEffect, useState } from "react";
-import axios from "@/utils/axios";
-import { useRouter } from "next/navigation";
-import { toUTC } from "@/utils/commonFunc";
-import ToggleSwitch from "@/components/form/switch/Switch";
+import { useForm, Controller } from 'react-hook-form';
+import ComponentCard from '@/components/common/ComponentCard';
+import VideoSourceManager from '@/components/video/VideoSourceManager';
+import VideoDetailsInputs from '@/components/video/VideoDetailsInputs';
+import StudioSelect from '@/components/video/StudioSelect';
+import PornstarSelect from '@/components/video/PornstarSelect';
+import PosterFetch from '@/components/video/PosterFetch';
+import ScrapDetails from '@/components/video/ScrapDetails';
+import React, { useEffect, useState } from 'react';
+import axios from '@/utils/axios';
+import { useRouter } from 'next/navigation';
+import { toUTC } from '@/utils/commonFunc';
+import ToggleSwitch from '@/components/form/switch/Switch';
 import CategoryDetails from '@/components/video/CategoryDetails';
 import { Save, Film, Wand2, ArrowLeft } from 'lucide-react';
 
@@ -47,13 +47,18 @@ interface VideoFormData {
   }[];
 }
 
-
 export default function AddVideo() {
   const router = useRouter();
   const [isScraping, setIsScraping] = useState(false);
 
   // Set up react-hook-form
-  const { control, handleSubmit, formState: { errors, isSubmitting }, setValue, watch } = useForm<VideoFormData>({
+  const {
+    control,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    setValue,
+    watch,
+  } = useForm<VideoFormData>({
     defaultValues: {
       title: '',
       description: '',
@@ -62,16 +67,19 @@ export default function AddVideo() {
       studios: [],
       pornstars: [],
       categories: [],
-      thumbnail: 'https://diplo-media.s3.eu-central-1.amazonaws.com/2023/06/default-video-thumbnail.jpg',
+      thumbnail:
+        'https://diplo-media.s3.eu-central-1.amazonaws.com/2023/06/default-video-thumbnail.jpg',
       is_active: false,
-      videoSources: [{
-        id: null,
-        file_size: null,
-        file_type: "mp4",
-        quality: "720p",
-        url: ""
-      }]
-    }
+      videoSources: [
+        {
+          id: null,
+          file_size: null,
+          file_type: 'mp4',
+          quality: '720p',
+          url: '',
+        },
+      ],
+    },
   });
 
   // Handle LocalStorage Draft Data
@@ -81,7 +89,7 @@ export default function AddVideo() {
       if (storedData) {
         try {
           const draftVideoData = JSON.parse(storedData);
-          
+
           if (draftVideoData.title) setValue('title', draftVideoData.title);
           if (draftVideoData.description || draftVideoData.meta_description) {
             setValue(
@@ -91,32 +99,44 @@ export default function AddVideo() {
                 : draftVideoData.meta_description
             );
           }
-     
+
           if (draftVideoData.datetime) setValue('datetime', draftVideoData.datetime);
           if (draftVideoData.duration) setValue('duration', draftVideoData.duration);
 
           if (draftVideoData.studios) {
-            const studios = draftVideoData.studios.map((studio: string) => ({ value: studio, label: studio }));
+            const studios = draftVideoData.studios.map((studio: string) => ({
+              value: studio,
+              label: studio,
+            }));
             setValue('studios', studios);
           }
           if (draftVideoData.pornstars) {
-            const pornstars = draftVideoData.pornstars.map((pornstar: string) => ({ value: pornstar, label: pornstar }));
+            const pornstars = draftVideoData.pornstars.map((pornstar: string) => ({
+              value: pornstar,
+              label: pornstar,
+            }));
             setValue('pornstars', pornstars);
           }
 
           if (draftVideoData.video_sources) {
-            setValue('videoSources', draftVideoData.video_sources.map((source: any) => ({
-              id: null,
-              file_size: source.file_size || null,
-              file_type: source.file_type || "mp4",
-              quality: "720p",
-              url: source.server == 'smoothpre' ? "https://smoothpre-cdn.hyper-flash.workers.dev/" + source.url : "https://video-cdn.rapid-access.online/" + source.url
-            })));
+            setValue(
+              'videoSources',
+              draftVideoData.video_sources.map((source: any) => ({
+                id: null,
+                file_size: source.file_size || null,
+                file_type: source.file_type || 'mp4',
+                quality: '720p',
+                url:
+                  source.server == 'smoothpre'
+                    ? 'https://smoothpre-cdn.hyper-flash.workers.dev/' + source.url
+                    : 'https://video-cdn.rapid-access.online/' + source.url,
+              }))
+            );
           }
 
           // localStorage.removeItem('selectedVideo'); // Optional: Clear after retrieving
         } catch (e) {
-          console.error("Error parsing local storage video data", e);
+          console.error('Error parsing local storage video data', e);
         }
       }
     }
@@ -128,18 +148,19 @@ export default function AddVideo() {
       description: data.description || null,
       upload_datetime: toUTC(data.datetime),
       duration: data.duration,
-      studios: data.studios.map(studio => studio.label),
-      pornstars: data.pornstars.map(pornstar => pornstar.label),
-      categories: data.categories.map(category => category.label),
+      studios: data.studios.map((studio) => studio.label),
+      pornstars: data.pornstars.map((pornstar) => pornstar.label),
+      categories: data.categories.map((category) => category.label),
       thumbnail: data.thumbnail,
       is_active: data.is_active ? 1 : 0,
-      videoSources: data.videoSources?.map(source => ({
-        file_size: source.file_size,
-        file_type: source.file_type,
-        quality: source.quality,
-        url: source.url
-      })) || []
-    }
+      videoSources:
+        data.videoSources?.map((source) => ({
+          file_size: source.file_size,
+          file_type: source.file_type,
+          quality: source.quality,
+          url: source.url,
+        })) || [],
+    };
 
     try {
       const response = await axios.post('/add-video', sendData);
@@ -151,7 +172,7 @@ export default function AddVideo() {
           confirmButtonColor: '#2563eb',
           timer: 2000,
         }).then(() => {
-          router.push("/video/list");
+          router.push('/video/list');
         });
       } else {
         throw new Error(response.data.message || 'Failed to add video');
@@ -161,7 +182,7 @@ export default function AddVideo() {
         title: 'Error',
         text: error.message || 'Failed to add video',
         icon: 'error',
-        confirmButtonColor: '#dc2626'
+        confirmButtonColor: '#dc2626',
       });
     }
   };
@@ -179,15 +200,24 @@ export default function AddVideo() {
         if (data.datetime) setValue('datetime', data.datetime);
 
         if (data.studios && Array.isArray(data.studios)) {
-          setValue('studios', data.studios.map((studio: any) => ({ value: studio, label: studio })));
+          setValue(
+            'studios',
+            data.studios.map((studio: any) => ({ value: studio, label: studio }))
+          );
         }
 
         if (data.pornstars && Array.isArray(data.pornstars)) {
-          setValue('pornstars', data.pornstars.map((pornstar: any) => ({ value: pornstar, label: pornstar })));
+          setValue(
+            'pornstars',
+            data.pornstars.map((pornstar: any) => ({ value: pornstar, label: pornstar }))
+          );
         }
 
         if (data.categories && Array.isArray(data.categories)) {
-          setValue('categories', data.categories.map((category: any) => ({ value: category, label: category })));
+          setValue(
+            'categories',
+            data.categories.map((category: any) => ({ value: category, label: category }))
+          );
         }
 
         if (data.videoSources && Array.isArray(data.videoSources)) {
@@ -202,29 +232,28 @@ export default function AddVideo() {
           timer: 1500,
           showConfirmButton: false,
           position: 'top-end',
-          toast: true
+          toast: true,
         });
       }, 500);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50/50 dark:bg-gray-900/50 p-6 pb-20">
-      <div className="max-w-[1920px] mx-auto space-y-6">
-
+    <div className="min-h-screen bg-gray-50/50 p-6 pb-20 dark:bg-gray-900/50">
+      <div className="mx-auto max-w-[1920px] space-y-6">
         {/* Header Section */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700/50">
+        <div className="flex flex-col justify-between gap-4 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm md:flex-row md:items-center dark:border-gray-700/50 dark:bg-gray-800">
           <div className="flex items-center gap-4">
             <button
-              onClick={() => router.push("/video/list")}
-              className="p-2 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              onClick={() => router.push('/video/list')}
+              className="rounded-xl bg-gray-100 p-2 transition-colors hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600"
               title="Go Back"
             >
-              <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+              <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-300" />
             </button>
             <div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 bg-clip-text text-transparent flex items-center gap-2">
-                <Film className="w-7 h-7 text-blue-600" />
+              <h1 className="flex items-center gap-2 bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-2xl font-bold text-transparent dark:from-white dark:to-gray-400">
+                <Film className="h-7 w-7 text-blue-600" />
                 Add New Video
               </h1>
               <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -237,45 +266,49 @@ export default function AddVideo() {
             <button
               onClick={handleSubmit(onSubmit)}
               disabled={isSubmitting}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-medium shadow-lg shadow-blue-600/20 hover:shadow-blue-600/30 transition-all duration-200 active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-2.5 font-medium text-white shadow-lg shadow-blue-600/20 transition-all duration-200 hover:bg-blue-700 hover:shadow-blue-600/30 active:scale-95 disabled:cursor-not-allowed disabled:opacity-70"
             >
               {isSubmitting ? (
-                <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
               ) : (
-                <Save className="w-5 h-5" />
+                <Save className="h-5 w-5" />
               )}
               <span>Save Video</span>
             </button>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          className="animate-in fade-in slide-in-from-bottom-4 duration-500"
+        >
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
             {/* Left Column - Main Details */}
-            <div className="xl:col-span-8 space-y-6">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-                <div className="border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 px-6 py-4">
-                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">Metadata & Basic Info</h3>
+            <div className="space-y-6 xl:col-span-8">
+              <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                <div className="border-b border-gray-100 bg-gray-50/50 px-6 py-4 dark:border-gray-700 dark:bg-gray-800/50">
+                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+                    Metadata & Basic Info
+                  </h3>
                 </div>
                 <div className="p-6">
                   <VideoDetailsInputs control={control} errors={errors} />
 
-                  <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-700">
+                  <div className="mt-6 border-t border-gray-100 pt-6 dark:border-gray-700">
                     <Controller
                       name="is_active"
                       control={control}
                       render={({ field }) => (
-                        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl">
+                        <div className="flex items-center justify-between rounded-xl bg-gray-50 p-4 dark:bg-gray-900/50">
                           <div>
-                            <span className="block font-medium text-gray-900 dark:text-white">Publication Status</span>
-                            <span className="text-sm text-gray-500">Enable to make this video publicly visible</span>
+                            <span className="block font-medium text-gray-900 dark:text-white">
+                              Publication Status
+                            </span>
+                            <span className="text-sm text-gray-500">
+                              Enable to make this video publicly visible
+                            </span>
                           </div>
-                          <ToggleSwitch
-                            label=""
-                            checked={field.value}
-                            onChange={field.onChange}
-                          />
+                          <ToggleSwitch label="" checked={field.value} onChange={field.onChange} />
                         </div>
                       )}
                     />
@@ -284,46 +317,46 @@ export default function AddVideo() {
               </div>
 
               {/* Categorization Section - Grouped */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
-                  <h3 className="font-semibold mb-4 text-gray-900 dark:text-gray-100 flex items-center gap-2">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                  <h3 className="mb-4 flex items-center gap-2 font-semibold text-gray-900 dark:text-gray-100">
                     Studio Information
                   </h3>
                   <StudioSelect control={control} />
                 </div>
 
-                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
-                  <h3 className="font-semibold mb-4 text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                  <h3 className="mb-4 flex items-center gap-2 font-semibold text-gray-900 dark:text-gray-100">
                     Cast / Pornstars
                   </h3>
                   <PornstarSelect control={control} errors={errors} />
                 </div>
               </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
-                <h3 className="font-semibold mb-4 text-gray-900 dark:text-gray-100 flex items-center gap-2">
+              <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                <h3 className="mb-4 flex items-center gap-2 font-semibold text-gray-900 dark:text-gray-100">
                   Categories & Tags
                 </h3>
                 <CategoryDetails control={control} errors={errors} />
               </div>
             </div>
 
-
-
             {/* Right Column - Media & Tools */}
-            <div className="xl:col-span-4 space-y-6">
+            <div className="space-y-6 xl:col-span-4">
               {/* Poster / Thumbnail */}
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-                <div className="p-4 border-b border-gray-100 dark:border-gray-700 font-medium">Poster / Thumbnail</div>
+              <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                <div className="border-b border-gray-100 p-4 font-medium dark:border-gray-700">
+                  Poster / Thumbnail
+                </div>
                 <div className="p-6">
                   <PosterFetch control={control} errors={errors} watch={watch} />
                 </div>
               </div>
               {/* Scrap Tool */}
-              <div className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/10 dark:to-blue-900/10 rounded-2xl shadow-sm border border-indigo-100 dark:border-indigo-900/30 p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg text-indigo-600 dark:text-indigo-400">
-                    <Wand2 className="w-5 h-5" />
+              <div className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50 to-blue-50 p-6 shadow-sm dark:border-indigo-900/30 dark:from-indigo-900/10 dark:to-blue-900/10">
+                <div className="mb-4 flex items-center gap-2">
+                  <div className="rounded-lg bg-indigo-100 p-2 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400">
+                    <Wand2 className="h-5 w-5" />
                   </div>
                   <div>
                     <h3 className="font-bold text-gray-900 dark:text-gray-100">Auto-Import Data</h3>
@@ -336,13 +369,12 @@ export default function AddVideo() {
           </div>
 
           {/* Video Sources */}
-          <div className="mt-8 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-            <div className="p-4 border-b border-gray-100 dark:border-gray-700 font-medium">Video Sources</div>
+          <div className="mt-8 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <div className="border-b border-gray-100 p-4 font-medium dark:border-gray-700">
+              Video Sources
+            </div>
             <div className="p-6">
-              <VideoSourceManager
-                control={control}
-                name="videoSources"
-              />
+              <VideoSourceManager control={control} name="videoSources" />
             </div>
           </div>
         </form>

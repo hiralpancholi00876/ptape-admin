@@ -6,7 +6,7 @@ import { ThemeProvider } from '@/context/ThemeContext';
 import ReactQueryProvider from '@/providers/ReactQueryProvider';
 
 const outfit = Outfit({
-  subsets: ["latin"],
+  subsets: ['latin'],
 });
 
 export default function RootLayout({
@@ -16,7 +16,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${outfit.className} dark:bg-gray-900 custom-scrollbar antialiased`}>
+      <body className={`${outfit.className} custom-scrollbar antialiased dark:bg-gray-900`}>
         <ReactQueryProvider>
           <ThemeProvider>
             <SidebarProvider>{children}</SidebarProvider>

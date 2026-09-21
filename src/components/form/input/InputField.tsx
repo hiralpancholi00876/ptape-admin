@@ -1,8 +1,8 @@
-import React, { FC } from "react";
-import { Clipboard } from "lucide-react";
+import React, { FC } from 'react';
+import { Clipboard } from 'lucide-react';
 
 interface InputProps {
-  type?: "text" | "number" | "email" | "password" | "date" | "time" | string;
+  type?: 'text' | 'number' | 'email' | 'password' | 'date' | 'time' | string;
   id?: string;
   name?: string;
   placeholder?: string;
@@ -22,14 +22,14 @@ interface InputProps {
 }
 
 const Input: FC<InputProps> = ({
-  type = "text",
+  type = 'text',
   id,
   name,
   placeholder,
   defaultValue,
   value,
   onChange,
-  className = "",
+  className = '',
   min,
   max,
   step,
@@ -38,13 +38,13 @@ const Input: FC<InputProps> = ({
   error = false,
   hint,
   required = false,
-  enablePaste = false
+  enablePaste = false,
 }) => {
   // Determine input styles based on state (disabled, success, error)
   let inputClasses = `h-11 w-full rounded-lg border appearance-none px-4 py-2.5 text-sm shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 ${className}`;
 
   if (enablePaste) {
-    inputClasses += " pr-10";
+    inputClasses += ' pr-10';
   }
 
   // Add styles for the different states
@@ -86,30 +86,27 @@ const Input: FC<InputProps> = ({
                 // Create a synthetic event to trigger onChange
                 const event = {
                   target: { value: text },
-                  currentTarget: { value: text }
+                  currentTarget: { value: text },
                 } as unknown as React.ChangeEvent<HTMLInputElement>;
                 onChange(event);
               }
             } catch (err) {
-              console.error("Failed to read clipboard", err);
+              console.error('Failed to read clipboard', err);
             }
           }}
-          className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-blue-500 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
+          className="absolute top-1/2 right-2 -translate-y-1/2 rounded-md p-1.5 text-gray-400 transition-all hover:bg-gray-100 hover:text-blue-500 dark:hover:bg-gray-700"
           title="Paste from clipboard"
         >
-          <Clipboard className="w-4 h-4" />
+          <Clipboard className="h-4 w-4" />
         </button>
       )}
 
       {/* Optional Hint Text */}
       {hint && (
         <p
-          className={`mt-1.5 text-xs ${error
-            ? "text-error-500"
-            : success
-              ? "text-success-500"
-              : "text-gray-500"
-            }`}
+          className={`mt-1.5 text-xs ${
+            error ? 'text-error-500' : success ? 'text-success-500' : 'text-gray-500'
+          }`}
         >
           {hint}
         </p>

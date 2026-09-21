@@ -1,7 +1,7 @@
-import React from "react";
-import { Controller, Control, FieldErrors } from "react-hook-form";
-import Label from "@/components/form/Label";
-import Input from "@/components/form/input/InputField";
+import React from 'react';
+import { Controller, Control, FieldErrors } from 'react-hook-form';
+import Label from '@/components/form/Label';
+import Input from '@/components/form/input/InputField';
 
 interface PosterDetailsProps {
   control: Control<any>;
@@ -12,12 +12,17 @@ interface PosterDetailsProps {
 const PosterDetails: React.FC<PosterDetailsProps> = ({ control, errors, watch }) => {
   return (
     <div>
-      <img className="w-full" src={watch("thumbnail")} alt="Poster preview" referrerPolicy="no-referrer" />
+      <img
+        className="w-full"
+        src={watch('thumbnail')}
+        alt="Poster preview"
+        referrerPolicy="no-referrer"
+      />
       <Label className="mt-3">Change Image Url</Label>
       <Controller
         name="thumbnail"
         control={control}
-        rules={{ required: "Image URL is required" }}
+        rules={{ required: 'Image URL is required' }}
         render={({ field }) => (
           <>
             <Input
@@ -28,7 +33,7 @@ const PosterDetails: React.FC<PosterDetailsProps> = ({ control, errors, watch })
               enablePaste={true}
             />
             {errors.thumbnail?.message && (
-              <p className="text-red-500 text-sm mt-1">{String(errors.thumbnail.message)}</p>
+              <p className="mt-1 text-sm text-red-500">{String(errors.thumbnail.message)}</p>
             )}
           </>
         )}

@@ -1,8 +1,8 @@
-"use client";
-import React from "react";
-import Link from "next/link";
-import { useSidebar } from "@/context/SidebarContext";
-import UserDropdown from "@/components/header/UserDropdown";
+'use client';
+import React from 'react';
+import Link from 'next/link';
+import { useSidebar } from '@/context/SidebarContext';
+import UserDropdown from '@/components/header/UserDropdown';
 import { Menu, X } from 'lucide-react';
 
 const AppHeader: React.FC = () => {
@@ -17,20 +17,20 @@ const AppHeader: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-40 flex items-center justify-between w-full h-16 px-4 lg:px-6 bg-white/90 backdrop-blur-md border-b border-gray-200 dark:bg-gray-900/90 dark:border-gray-800">
+    <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-gray-200 bg-white/90 px-4 backdrop-blur-md lg:px-6 dark:border-gray-800 dark:bg-gray-900/90">
       {/* Left: Toggle + Logo */}
       <div className="flex items-center gap-3">
         <button
           onClick={handleToggle}
-          className="lg:hidden p-2 text-gray-600 rounded-lg hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors"
+          className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-100 lg:hidden dark:text-gray-400 dark:hover:bg-gray-800"
           aria-label="Toggle Sidebar"
         >
           {isMobileOpen ? <X size={22} /> : <Menu size={22} />}
         </button>
 
-        <Link href="/" className="lg:hidden flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center">
-            <span className="text-white font-bold text-lg">P</span>
+        <Link href="/" className="flex items-center gap-2 lg:hidden">
+          <div className="bg-brand-600 flex h-8 w-8 items-center justify-center rounded-lg">
+            <span className="text-lg font-bold text-white">P</span>
           </div>
           <span className="text-lg font-semibold text-gray-900 dark:text-white">Ptape</span>
         </Link>

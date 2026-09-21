@@ -15,23 +15,21 @@ function formatDuration(seconds) {
   const ss = String(s).padStart(2, '0');
 
   // Return formatted string
-  return h > 0
-    ? `${String(h).padStart(2, '0')}:${mm}:${ss}`
-    : `${mm}:${ss}`;
+  return h > 0 ? `${String(h).padStart(2, '0')}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
 // Converts a number to a human-readable format with suffixes (K, M, B, T)
 function convertNumberToSuffix(num) {
-  if (num < 1e3) return num;  // If number is less than 1000, return as is.
+  if (num < 1e3) return num; // If number is less than 1000, return as is.
 
-  const suffixes = ["", "K", "M", "B", "T"];
-  const magnitude = Math.floor(Math.log10(num) / 3);  // Find the power of 1000
-  const scaledNum = num / Math.pow(1000, magnitude);  // Scale the number down
+  const suffixes = ['', 'K', 'M', 'B', 'T'];
+  const magnitude = Math.floor(Math.log10(num) / 3); // Find the power of 1000
+  const scaledNum = num / Math.pow(1000, magnitude); // Scale the number down
 
   // Return the number without decimal if it's a whole number
-  const formattedNum = (scaledNum % 1 === 0) ? scaledNum.toFixed(0) : scaledNum.toFixed(1);
+  const formattedNum = scaledNum % 1 === 0 ? scaledNum.toFixed(0) : scaledNum.toFixed(1);
 
-  return formattedNum + suffixes[magnitude];  // Append the appropriate suffix
+  return formattedNum + suffixes[magnitude]; // Append the appropriate suffix
 }
 
 // Converts a UTC date string to a human-readable "time ago" format
@@ -46,7 +44,7 @@ function timeAgo(utcDateString) {
     { label: 'day', seconds: 86400 },
     { label: 'hour', seconds: 3600 },
     { label: 'minute', seconds: 60 },
-    { label: 'second', seconds: 1 }
+    { label: 'second', seconds: 1 },
   ];
 
   for (const unit of units) {

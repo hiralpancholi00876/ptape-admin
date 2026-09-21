@@ -1,8 +1,8 @@
-import React from "react";
-import { Controller, Control, FieldErrors } from "react-hook-form";
-import Label from "@/components/form/Label";
-import Input from "@/components/form/input/InputField";
-import TextArea from "@/components/form/input/TextArea";
+import React from 'react';
+import { Controller, Control, FieldErrors } from 'react-hook-form';
+import Label from '@/components/form/Label';
+import Input from '@/components/form/input/InputField';
+import TextArea from '@/components/form/input/TextArea';
 
 interface VideoDetailsProps {
   control: Control<any>;
@@ -16,7 +16,7 @@ const VideoDetails: React.FC<VideoDetailsProps> = ({ control, errors }) => {
       <Controller
         name="title"
         control={control}
-        rules={{ required: "Title is required" }}
+        rules={{ required: 'Title is required' }}
         render={({ field }) => (
           <>
             <Input
@@ -26,7 +26,7 @@ const VideoDetails: React.FC<VideoDetailsProps> = ({ control, errors }) => {
               onChange={(e) => field.onChange(e.target.value)}
             />
             {errors.title?.message && (
-              <p className="text-red-500 text-sm mt-1">{String(errors.title.message)}</p>
+              <p className="mt-1 text-sm text-red-500">{String(errors.title.message)}</p>
             )}
           </>
         )}
@@ -40,11 +40,11 @@ const VideoDetails: React.FC<VideoDetailsProps> = ({ control, errors }) => {
           <>
             <TextArea
               placeholder="Enter description"
-              value={field.value || ""}
+              value={field.value || ''}
               onChange={(value) => field.onChange(value)}
             />
             {errors.description?.message && (
-              <p className="text-red-500 text-sm mt-1">{String(errors.description.message)}</p>
+              <p className="mt-1 text-sm text-red-500">{String(errors.description.message)}</p>
             )}
           </>
         )}
@@ -53,7 +53,7 @@ const VideoDetails: React.FC<VideoDetailsProps> = ({ control, errors }) => {
       <Controller
         name="datetime"
         control={control}
-        rules={{ required: "Date and time are required" }}
+        rules={{ required: 'Date and time are required' }}
         render={({ field }) => (
           <>
             <Label className="mt-3">Date and Time</Label>
@@ -64,7 +64,7 @@ const VideoDetails: React.FC<VideoDetailsProps> = ({ control, errors }) => {
               onChange={(e) => field.onChange(e.target.value)}
             />
             {errors.datetime?.message && (
-              <p className="text-red-500 text-sm mt-1">{String(errors.datetime.message)}</p>
+              <p className="mt-1 text-sm text-red-500">{String(errors.datetime.message)}</p>
             )}
           </>
         )}
@@ -75,7 +75,7 @@ const VideoDetails: React.FC<VideoDetailsProps> = ({ control, errors }) => {
         <Controller
           name="duration"
           control={control}
-          rules={{ required: "Duration is required" }}
+          rules={{ required: 'Duration is required' }}
           render={({ field }) => (
             <>
               <Input
@@ -85,7 +85,7 @@ const VideoDetails: React.FC<VideoDetailsProps> = ({ control, errors }) => {
                 onChange={(e) => field.onChange(e.target.value)}
               />
               {errors.duration?.message && (
-                <p className="text-red-500 text-sm mt-1">{String(errors.duration.message)}</p>
+                <p className="mt-1 text-sm text-red-500">{String(errors.duration.message)}</p>
               )}
             </>
           )}
