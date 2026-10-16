@@ -23,11 +23,7 @@ interface Video {
   link: string;
   thumbnail: string;
   datetime?: string;
-  status: string | undefined;
-  id: number;
-  upload_status: string;
-  s3_url: string | null;
-  job_id: string | null;
+  status?: string;
 }
 
 interface VideoSelectModalProps {

@@ -11,7 +11,7 @@ import ScrapDetails from '@/components/video/ScrapDetails';
 import React, { useEffect, useState } from 'react';
 import axios from '@/utils/axios';
 import { useRouter } from 'next/navigation';
-import { toUTC } from '@/utils/commonFunc';
+import { toUTC, NO_THUMBNAIL_IMAGE } from '@/utils/commonFunc';
 import ToggleSwitch from '@/components/form/switch/Switch';
 import CategoryDetails from '@/components/video/CategoryDetails';
 import { Save, Film, Wand2, ArrowLeft } from 'lucide-react';
@@ -67,8 +67,7 @@ export default function AddVideo() {
       studios: [],
       pornstars: [],
       categories: [],
-      thumbnail:
-        'https://diplo-media.s3.eu-central-1.amazonaws.com/2023/06/default-video-thumbnail.jpg',
+      thumbnail: NO_THUMBNAIL_IMAGE,
       is_active: false,
       videoSources: [
         {
@@ -103,6 +102,8 @@ export default function AddVideo() {
           if (draftVideoData.datetime) setValue('datetime', draftVideoData.datetime);
           if (draftVideoData.duration) setValue('duration', draftVideoData.duration);
 
+          setValue('thumbnail', draftVideoData.thumbnail?.trim() || NO_THUMBNAIL_IMAGE);
+
           if (draftVideoData.studios) {
             const studios = draftVideoData.studios.map((studio: string) => ({
               value: studio,
@@ -133,12 +134,24 @@ export default function AddVideo() {
               }))
             );
           }
-
-          // localStorage.removeItem('selectedVideo'); // Optional: Clear after retrieving
         } catch (e) {
           console.error('Error parsing local storage video data', e);
         }
       }
+
+      // Drop the draft after this visit. The timeout skips React's dev remount,
+      // which runs this cleanup once before the form has finished loading.
+      let committed = false;
+      const timer = window.setTimeout(() => {
+        committed = true;
+      }, 0);
+
+      return () => {
+        window.clearTimeout(timer);
+        if (committed) {
+          localStorage.removeItem('selectedVideo');
+        }
+      };
     }
   }, [setValue]);
 

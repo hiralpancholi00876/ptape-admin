@@ -1,13 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import { Controller, Control } from 'react-hook-form';
+import { useEffect, useState } from 'react';
+import { Controller, Control, FieldValues, Path } from 'react-hook-form';
 import Select from 'react-select/creatable';
 import axios from '@/utils/axios';
 
-interface StudioSelectProps {
-  control: Control<any>;
+interface StudioSelectProps<T extends FieldValues> {
+  control: Control<T>;
 }
 
-const StudioSelect: React.FC<StudioSelectProps> = ({ control }) => {
+function StudioSelect<T extends FieldValues>({ control }: StudioSelectProps<T>) {
   const [isMounted, setIsMounted] = useState(false);
   const [studios, setStudios] = useState<{ value: string; label: string }[]>([]);
 
@@ -43,7 +43,7 @@ const StudioSelect: React.FC<StudioSelectProps> = ({ control }) => {
   return (
     <div>
       <Controller
-        name="studios"
+        name={'studios' as Path<T>}
         control={control}
         render={({ field }) => (
           <Select
@@ -53,7 +53,7 @@ const StudioSelect: React.FC<StudioSelectProps> = ({ control }) => {
             inputId="studio-select-input"
             isMulti
             options={studios}
-            value={field.value}
+            value={(field.value || []) as { value: string; label: string }[]}
             onChange={(selectedOptions) => {
               field.onChange(selectedOptions || []);
             }}
@@ -68,6 +68,6 @@ const StudioSelect: React.FC<StudioSelectProps> = ({ control }) => {
       </button>
     </div>
   );
-};
+}
 
 export default StudioSelect;

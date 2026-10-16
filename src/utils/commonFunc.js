@@ -83,4 +83,7 @@ function toLocal(utcString) {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
-export { formatDuration, convertNumberToSuffix, timeAgo, toUTC, toLocal };
+const NO_THUMBNAIL_IMAGE =
+  'https://media.istockphoto.com/id/1147544806/vector/no-thumbnail-image-vector-graphic.jpg';
+
+export { formatDuration, convertNumberToSuffix, timeAgo, toUTC, toLocal, NO_THUMBNAIL_IMAGE };

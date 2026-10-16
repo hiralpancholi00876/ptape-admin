@@ -1,15 +1,14 @@
-import React from 'react';
-import { Controller, Control, FieldErrors } from 'react-hook-form';
+import { Controller, Control, FieldErrors, FieldValues, Path } from 'react-hook-form';
 import Label from '@/components/form/Label';
 import Input from '@/components/form/input/InputField';
 
-interface PosterDetailsProps {
-  control: Control<any>;
+interface PosterDetailsProps<T extends FieldValues> {
+  control: Control<T>;
   errors: FieldErrors<any>;
   watch: (field: string) => string;
 }
 
-const PosterDetails: React.FC<PosterDetailsProps> = ({ control, errors, watch }) => {
+function PosterDetails<T extends FieldValues>({ control, errors, watch }: PosterDetailsProps<T>) {
   return (
     <div>
       <img
@@ -20,7 +19,7 @@ const PosterDetails: React.FC<PosterDetailsProps> = ({ control, errors, watch })
       />
       <Label className="mt-3">Change Image Url</Label>
       <Controller
-        name="thumbnail"
+        name={'thumbnail' as Path<T>}
         control={control}
         rules={{ required: 'Image URL is required' }}
         render={({ field }) => (
@@ -40,6 +39,6 @@ const PosterDetails: React.FC<PosterDetailsProps> = ({ control, errors, watch })
       />
     </div>
   );
-};
+}
 
 export default PosterDetails;

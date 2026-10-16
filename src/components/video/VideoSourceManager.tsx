@@ -1,10 +1,9 @@
-import React from 'react';
 import { PlusIcon, TrashIcon } from 'lucide-react';
-import { useController, Control } from 'react-hook-form';
+import { useController, Control, FieldValues, Path } from 'react-hook-form';
 
-interface VideoSourceManagerProps {
-  control: Control<any>;
-  name: string;
+interface VideoSourceManagerProps<T extends FieldValues> {
+  control: Control<T>;
+  name: Path<T>;
   defaultSources?: {
     id: string;
     file_size: number | null;
@@ -14,11 +13,11 @@ interface VideoSourceManagerProps {
   }[];
 }
 
-const VideoSourceManager: React.FC<VideoSourceManagerProps> = ({
+function VideoSourceManager<T extends FieldValues>({
   control,
   name,
   defaultSources = [],
-}) => {
+}: VideoSourceManagerProps<T>) {
   const {
     field: { value: sources = [], onChange },
   } = useController({
@@ -30,7 +29,7 @@ const VideoSourceManager: React.FC<VideoSourceManagerProps> = ({
       file_type: source.file_type || 'mp4',
       quality: source?.quality || '720p',
       url: source.url,
-    })),
+    })) as never,
   });
 
   // Remove the server-related state and API call since we no longer need it
@@ -199,6 +198,6 @@ const VideoSourceManager: React.FC<VideoSourceManagerProps> = ({
       </button>
     </div>
   );
-};
+}
 
 export default VideoSourceManager;

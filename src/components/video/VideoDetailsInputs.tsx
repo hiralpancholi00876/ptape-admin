@@ -1,20 +1,19 @@
-import React from 'react';
-import { Controller, Control, FieldErrors } from 'react-hook-form';
+import { Controller, Control, FieldErrors, FieldValues, Path } from 'react-hook-form';
 import Label from '@/components/form/Label';
 import Input from '@/components/form/input/InputField';
 import TextArea from '@/components/form/input/TextArea';
 
-interface VideoDetailsProps {
-  control: Control<any>;
+interface VideoDetailsProps<T extends FieldValues> {
+  control: Control<T>;
   errors: FieldErrors<any>;
 }
 
-const VideoDetails: React.FC<VideoDetailsProps> = ({ control, errors }) => {
+function VideoDetails<T extends FieldValues>({ control, errors }: VideoDetailsProps<T>) {
   return (
     <div>
       <Label>Title</Label>
       <Controller
-        name="title"
+        name={'title' as Path<T>}
         control={control}
         rules={{ required: 'Title is required' }}
         render={({ field }) => (
@@ -34,7 +33,7 @@ const VideoDetails: React.FC<VideoDetailsProps> = ({ control, errors }) => {
 
       <Label className="mt-3">Description</Label>
       <Controller
-        name="description"
+        name={'description' as Path<T>}
         control={control}
         render={({ field }) => (
           <>
@@ -51,7 +50,7 @@ const VideoDetails: React.FC<VideoDetailsProps> = ({ control, errors }) => {
       />
 
       <Controller
-        name="datetime"
+        name={'datetime' as Path<T>}
         control={control}
         rules={{ required: 'Date and time are required' }}
         render={({ field }) => (
@@ -73,7 +72,7 @@ const VideoDetails: React.FC<VideoDetailsProps> = ({ control, errors }) => {
       <div>
         <Label className="mt-3">Duration</Label>
         <Controller
-          name="duration"
+          name={'duration' as Path<T>}
           control={control}
           rules={{ required: 'Duration is required' }}
           render={({ field }) => (
@@ -93,6 +92,6 @@ const VideoDetails: React.FC<VideoDetailsProps> = ({ control, errors }) => {
       </div>
     </div>
   );
-};
+}
 
 export default VideoDetails;

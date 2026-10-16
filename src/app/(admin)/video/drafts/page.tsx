@@ -1,7 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Plus,
   RefreshCw,
@@ -13,11 +12,12 @@ import {
   CheckCircle,
   X,
   Star,
+  Sparkles,
 } from 'lucide-react';
 import { VideoSelectModal } from './VideoSelectModal';
 import axios from '@/utils/axios';
 import Swal from 'sweetalert2';
-import { timeAgo } from '@/utils/commonFunc';
+import { timeAgo, NO_THUMBNAIL_IMAGE } from '@/utils/commonFunc';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -182,6 +182,25 @@ export default function DirectUploadPage() {
       axios.post('/add-to-remote-upload', params),
   });
 
+  const reparseDraft = async (id: number) => {
+    const res = await axios.post('/reparse-draft', { id });
+    if (!res.data.success) {
+      throw new Error(res.data.message || 'Failed to start AI parse');
+    }
+    return res.data;
+  };
+
+  const reparseMutation = useMutation({
+    mutationFn: reparseDraft,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['draft-videos'] });
+      queryClient.invalidateQueries({ queryKey: ['draft-videos-status'] });
+    },
+    onError: (error: Error) => {
+      Swal.fire({ title: 'Error', text: error.message, icon: 'error' });
+    },
+  });
+
   // Selection helpers
   const isUploadable = (v: Video) =>
     (v.status === 'done' && v.upload_status === 'not_started') ||
@@ -200,6 +219,10 @@ export default function DirectUploadPage() {
 
   const uploadableSelected = videos.filter(
     (v) => selectedLinks.includes(v.link) && isUploadable(v)
+  );
+
+  const reparsingSelected = videos.filter(
+    (v) => selectedLinks.includes(v.link) && v.status !== 'processing'
   );
 
   // Actions
@@ -250,6 +273,22 @@ export default function DirectUploadPage() {
       'Upload queued!'
     );
 
+  const handleBulkReparse = () => {
+    if (!reparsingSelected.length) {
+      Swal.fire({ title: 'No eligible videos', icon: 'info' });
+      return;
+    }
+    confirmAction(
+      `Re-parse ${reparsingSelected.length} videos with AI?`,
+      async () => {
+        await Promise.all(reparsingSelected.map((v) => reparseDraft(v.id)));
+        queryClient.invalidateQueries({ queryKey: ['draft-videos-status'] });
+        setSelectedLinks([]);
+      },
+      'AI parse started!'
+    );
+  };
+
   const handleBulkUpload = () => {
     if (!uploadableSelected.length) {
       Swal.fire({ title: 'No eligible videos', icon: 'info' });
@@ -277,6 +316,7 @@ export default function DirectUploadPage() {
         'selectedVideo',
         JSON.stringify({
           ...data?.scrap_data,
+          thumbnail: data?.thumbnail?.trim() || NO_THUMBNAIL_IMAGE,
           video_sources: [
             {
               url: data?.s3_key,
@@ -340,6 +380,15 @@ export default function DirectUploadPage() {
                     <Star className={`h-4 w-4 ${allSelectedAreBest ? 'fill-current' : ''}`} />
                     {allSelectedAreBest ? 'Unmark Best' : 'Best Video'} ({selectedLinks.length})
                   </button>
+                  {reparsingSelected.length > 0 && (
+                    <button
+                      onClick={handleBulkReparse}
+                      className="flex items-center gap-2 rounded-xl bg-amber-600 px-4 py-2 text-sm text-white hover:bg-amber-700"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      Re-parse ({reparsingSelected.length})
+                    </button>
+                  )}
                   {uploadableSelected.length > 0 && (
                     <button
                       onClick={handleBulkUpload}
@@ -511,6 +560,16 @@ export default function DirectUploadPage() {
                           <Plus className="mx-auto h-4 w-4" />
                         </button>
                       )}
+                      <button
+                        onClick={() => reparseMutation.mutate(video.id)}
+                        disabled={video.status === 'processing' || reparseMutation.isPending}
+                        className="flex-1 rounded-lg bg-amber-50 p-2 text-amber-600 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-amber-900/20 dark:text-amber-400"
+                        title="Re-parse with AI"
+                      >
+                        <Sparkles
+                          className={`mx-auto h-4 w-4 ${video.status === 'processing' ? 'animate-pulse' : ''}`}
+                        />
+                      </button>
                       {showUpload && (
                         <button
                           onClick={() => handleUpload(video)}

@@ -1,14 +1,14 @@
-import React, { useEffect, useState } from 'react';
-import { Controller, Control, FieldErrors } from 'react-hook-form';
+import { useEffect, useState } from 'react';
+import { Controller, Control, FieldErrors, FieldValues, Path } from 'react-hook-form';
 import Select from 'react-select/creatable';
 import axios from '@/utils/axios';
 
-interface CategoryDetailsProps {
-  control: Control<any>;
+interface CategoryDetailsProps<T extends FieldValues> {
+  control: Control<T>;
   errors: FieldErrors<any>;
 }
 
-const CategoryDetails: React.FC<CategoryDetailsProps> = ({ control, errors }) => {
+function CategoryDetails<T extends FieldValues>({ control, errors }: CategoryDetailsProps<T>) {
   const [isMounted, setIsMounted] = useState(false);
   const [categories, setCategories] = useState<{ value: string; label: string }[]>([]);
 
@@ -44,7 +44,7 @@ const CategoryDetails: React.FC<CategoryDetailsProps> = ({ control, errors }) =>
   return (
     <div>
       <Controller
-        name="categories"
+        name={'categories' as Path<T>}
         control={control}
         rules={{ required: 'Category is required' }}
         render={({ field }) => (
@@ -56,7 +56,7 @@ const CategoryDetails: React.FC<CategoryDetailsProps> = ({ control, errors }) =>
               name="categories"
               inputId="categories-select-input"
               options={categories}
-              value={field.value}
+              value={(field.value || []) as { value: string; label: string }[]}
               onChange={(selectedOptions) => {
                 field.onChange(selectedOptions || []);
               }}
@@ -76,6 +76,6 @@ const CategoryDetails: React.FC<CategoryDetailsProps> = ({ control, errors }) =>
       </button>
     </div>
   );
-};
+}
 
 export default CategoryDetails;

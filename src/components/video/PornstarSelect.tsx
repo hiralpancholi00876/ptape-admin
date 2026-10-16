@@ -1,14 +1,14 @@
-import React, { useEffect, useState } from 'react';
-import { Controller, Control, FieldErrors } from 'react-hook-form';
+import { useEffect, useState } from 'react';
+import { Controller, Control, FieldErrors, FieldValues, Path } from 'react-hook-form';
 import Select from 'react-select/creatable';
 import axios from '@/utils/axios';
 
-interface PornstarDetailsProps {
-  control: Control<any>;
+interface PornstarDetailsProps<T extends FieldValues> {
+  control: Control<T>;
   errors: FieldErrors<any>;
 }
 
-const PornstarDetails: React.FC<PornstarDetailsProps> = ({ control, errors }) => {
+function PornstarDetails<T extends FieldValues>({ control, errors }: PornstarDetailsProps<T>) {
   const [isMounted, setIsMounted] = useState(false);
   const [pornstars, setPornstars] = useState<{ value: string; label: string }[]>([]);
 
@@ -44,7 +44,7 @@ const PornstarDetails: React.FC<PornstarDetailsProps> = ({ control, errors }) =>
   return (
     <div>
       <Controller
-        name="pornstars"
+        name={'pornstars' as Path<T>}
         control={control}
         rules={{ required: 'Pornstars is required' }}
         render={({ field }) => (
@@ -56,7 +56,7 @@ const PornstarDetails: React.FC<PornstarDetailsProps> = ({ control, errors }) =>
               inputId="pornstar-select-input"
               isMulti
               options={pornstars}
-              value={field.value}
+              value={(field.value || []) as { value: string; label: string }[]}
               onChange={(selectedOptions) => {
                 field.onChange(selectedOptions || []);
               }}
@@ -75,6 +75,6 @@ const PornstarDetails: React.FC<PornstarDetailsProps> = ({ control, errors }) =>
       </button>
     </div>
   );
-};
+}
 
 export default PornstarDetails;
