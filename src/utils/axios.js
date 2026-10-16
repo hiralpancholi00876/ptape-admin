@@ -2,7 +2,7 @@
 import axios from 'axios';
 
 const axiosInstance = axios.create({
-  baseURL: 'http://localhost:5551/api/v1/admin/',
+  baseURL: 'https://api.nudefiles.xyz/api/v1/admin/',
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
