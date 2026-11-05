@@ -1,116 +1,116 @@
-import { PlusIcon, TrashIcon } from 'lucide-react';
-import { useController, Control, FieldValues, Path } from 'react-hook-form';
+import { useState } from 'react'
+import { GripVertical, Plus, Trash2 } from 'lucide-react'
+import { useController, type Control } from 'react-hook-form'
+import type { VideoFormSource, VideoFormValues } from '../../types'
+import { emptySource } from '../../lib/video'
+import { Button } from '../ui'
 
-type VideoSource = {
-  id: string | null;
-  file_size: number | null;
-  file_type: string | null;
-  quality: string | null;
-  url: string;
-};
+const fieldClass =
+  'h-10 rounded-xl border border-surface-700 bg-surface-950 px-3 text-sm text-zinc-100 placeholder:text-zinc-500 transition focus:border-accent-500 focus:bg-surface-900 focus:outline-none focus:ring-2 focus:ring-ring'
 
-interface VideoSourceManagerProps<T extends FieldValues> {
-  control: Control<T>;
-  name: Path<T>;
-}
-
-function VideoSourceManager<T extends FieldValues>({ control, name }: VideoSourceManagerProps<T>) {
+export function VideoSourceManager({ control }: { control: Control<VideoFormValues> }) {
   const {
     field: { value, onChange },
-  } = useController({ name, control });
-  const sources: VideoSource[] = value || [];
+  } = useController({ name: 'videoSources', control })
+  const sources = value ?? []
+  const [dragIndex, setDragIndex] = useState<number | null>(null)
 
-  const updateSource = (id: string | null, changes: Partial<VideoSource>) => {
-    onChange(sources.map((source) => (source.id === id ? { ...source, ...changes } : source)));
-  };
+  const updateSource = (id: string, changes: Partial<VideoFormSource>) => {
+    onChange(sources.map((source) => (source.id === id ? { ...source, ...changes } : source)))
+  }
 
   const moveSource = (fromIndex: number, toIndex: number) => {
-    const reordered = [...sources];
-    const [moved] = reordered.splice(fromIndex, 1);
-    reordered.splice(toIndex, 0, moved);
-    onChange(reordered);
-  };
-
-  const addSource = () => {
-    onChange([
-      ...sources,
-      { id: Date.now().toString(), file_size: null, file_type: 'mp4', quality: '720p', url: '' },
-    ]);
-  };
+    if (fromIndex === toIndex) return
+    const reordered = [...sources]
+    const [moved] = reordered.splice(fromIndex, 1)
+    reordered.splice(toIndex, 0, moved)
+    onChange(reordered)
+  }
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        {sources.map((source, index) => (
-          <div
-            key={source.id}
-            className="flex items-center space-x-2 rounded bg-gray-100 p-2 shadow"
-            draggable
-            onDragStart={(e) => e.dataTransfer.setData('text/plain', index.toString())}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => moveSource(parseInt(e.dataTransfer.getData('text/plain'), 10), index)}
-          >
-            <div className="cursor-grab">
-              <span className="text-gray-500">☰</span>
-            </div>
-            <input
-              type="number"
-              value={source.file_size || ''}
-              onChange={(e) =>
-                updateSource(source.id, {
-                  file_size: e.target.value ? parseFloat(e.target.value) : null,
-                })
-              }
-              placeholder="File Size (MB)"
-              className="w-[150px] rounded border p-2"
-            />
-            <select
-              value={source.file_type ?? ''}
-              onChange={(e) => updateSource(source.id, { file_type: e.target.value })}
-              className="w-[150px] rounded border bg-white p-2 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            >
-              <option value="mp4">MP4</option>
-              <option value="hls">HLS</option>
-            </select>
-            <select
-              value={source.quality || '720p'}
-              onChange={(e) => updateSource(source.id, { quality: e.target.value })}
-              className="w-[150px] rounded border bg-white p-2 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            >
-              <option value="" disabled>
-                Select Quality
-              </option>
-              <option value="480p">480p</option>
-              <option value="720p">720p</option>
-              <option value="1080p">1080p</option>
-            </select>
-            <input
-              type="text"
-              value={source.url}
-              onChange={(e) => updateSource(source.id, { url: e.target.value })}
-              placeholder="Video Source URL"
-              className="flex-1 rounded border p-2"
-            />
-            <button
-              type="button"
-              onClick={() => onChange(sources.filter((item) => item.id !== source.id))}
-              className="text-red-500 hover:text-red-700"
-            >
-              <TrashIcon />
-            </button>
-          </div>
-        ))}
-      </div>
-      <button
-        type="button"
-        onClick={addSource}
-        className="flex items-center space-x-2 rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
-      >
-        <PlusIcon />
-        <span>Add Row</span>
-      </button>
-    </div>
-  );
-}
+    <div className="space-y-3">
+      {sources.length === 0 && (
+        <p className="rounded-xl border border-dashed border-surface-600 px-4 py-6 text-center text-sm text-zinc-500">
+          No sources yet. Add one below.
+        </p>
+      )}
 
-export default VideoSourceManager;
+      {sources.map((source, index) => (
+        <div
+          key={source.id}
+          draggable
+          onDragStart={() => setDragIndex(index)}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={() => {
+            if (dragIndex !== null) moveSource(dragIndex, index)
+            setDragIndex(null)
+          }}
+          onDragEnd={() => setDragIndex(null)}
+          className={`flex flex-wrap items-center gap-2 rounded-xl border bg-surface-900/50 p-2 transition md:flex-nowrap ${
+            dragIndex === index ? 'border-accent-500/50 opacity-60' : 'border-surface-700'
+          }`}
+        >
+          <span className="cursor-grab px-1 text-zinc-500" title="Drag to reorder">
+            <GripVertical className="size-4" />
+          </span>
+          <input
+            type="number"
+            step="any"
+            aria-label="File size (MB)"
+            placeholder="Size (MB)"
+            value={source.file_size ?? ''}
+            onChange={(e) =>
+              updateSource(source.id, { file_size: e.target.value ? parseFloat(e.target.value) : null })
+            }
+            className={`${fieldClass} w-28`}
+          />
+          <select
+            aria-label="File type"
+            value={source.file_type ?? ''}
+            onChange={(e) => updateSource(source.id, { file_type: e.target.value })}
+            className={`${fieldClass} w-24`}
+          >
+            <option value="mp4">MP4</option>
+            <option value="hls">HLS</option>
+          </select>
+          <select
+            aria-label="Quality"
+            value={source.quality || '720p'}
+            onChange={(e) => updateSource(source.id, { quality: e.target.value })}
+            className={`${fieldClass} w-24`}
+          >
+            <option value="480p">480p</option>
+            <option value="720p">720p</option>
+            <option value="1080p">1080p</option>
+          </select>
+          <input
+            type="text"
+            aria-label="Source URL"
+            placeholder="Video source URL"
+            value={source.url}
+            onChange={(e) => updateSource(source.id, { url: e.target.value })}
+            className={`${fieldClass} min-w-48 flex-1`}
+          />
+          <button
+            type="button"
+            aria-label="Remove source"
+            title="Remove source"
+            onClick={() => onChange(sources.filter((item) => item.id !== source.id))}
+            className="rounded-lg p-2 text-zinc-400 transition hover:bg-danger/10 hover:text-danger"
+          >
+            <Trash2 className="size-4" />
+          </button>
+        </div>
+      ))}
+
+      <Button
+        variant="outline"
+        size="sm"
+        leftIcon={<Plus className="size-4" />}
+        onClick={() => onChange([...sources, emptySource()])}
+      >
+        Add source
+      </Button>
+    </div>
+  )
+}
