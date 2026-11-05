@@ -5,13 +5,12 @@ import VideoSourceManager from '@/components/video/VideoSourceManager';
 import VideoDetailsInputs from '@/components/video/VideoDetailsInputs';
 import TaxonomySelect from '@/components/video/TaxonomySelect';
 import PosterFetch from '@/components/video/PosterFetch';
-import ScrapDetails, { ScrapedVideo } from '@/components/video/ScrapDetails';
 import React, { useEffect } from 'react';
 import axios from '@/utils/axios';
 import { useRouter } from 'next/navigation';
 import { toUTC, toOptions, NO_THUMBNAIL_IMAGE } from '@/utils/commonFunc';
 import ToggleSwitch from '@/components/form/switch/Switch';
-import { Save, Film, WandSparkles, ArrowLeft } from 'lucide-react';
+import { Save, Film, ArrowLeft } from 'lucide-react';
 
 type Option = { value: string; label: string };
 
@@ -166,28 +165,6 @@ export default function AddVideo() {
     }
   };
 
-  const handleScrapedData = (data: ScrapedVideo | undefined) => {
-    if (!data) return;
-
-    if (data.title) setValue('title', data.title);
-    if (data.description) setValue('description', data.description);
-    if (data.thumbnail) setValue('thumbnail', data.thumbnail);
-    if (data.duration) setValue('duration', data.duration);
-    if (Array.isArray(data.studios)) setValue('studios', toOptions(data.studios));
-    if (Array.isArray(data.pornstars)) setValue('pornstars', toOptions(data.pornstars));
-    if (Array.isArray(data.categories)) setValue('categories', toOptions(data.categories));
-
-    Swal.fire({
-      title: 'Imported!',
-      text: 'Video details have been imported successfully.',
-      icon: 'success',
-      timer: 1500,
-      showConfirmButton: false,
-      position: 'top-end',
-      toast: true,
-    });
-  };
-
   return (
     <div className="min-h-screen bg-gray-50/50 p-6 pb-20 dark:bg-gray-900/50">
       <div className="mx-auto max-w-[1920px] space-y-6">
@@ -207,7 +184,7 @@ export default function AddVideo() {
                 Add New Video
               </h1>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Create a new video entry by filling out the form or scraping data
+                Create a new video entry by filling out the form
               </p>
             </div>
           </div>
@@ -301,7 +278,7 @@ export default function AddVideo() {
               </div>
             </div>
 
-            {/* Right Column - Media & Tools */}
+            {/* Right Column - Media */}
             <div className="space-y-6 xl:col-span-4">
               {/* Poster / Thumbnail */}
               <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
@@ -311,19 +288,6 @@ export default function AddVideo() {
                 <div className="p-6">
                   <PosterFetch control={control} errors={errors} watch={watch} />
                 </div>
-              </div>
-              {/* Scrap Tool */}
-              <div className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50 to-blue-50 p-6 shadow-sm dark:border-indigo-900/30 dark:from-indigo-900/10 dark:to-blue-900/10">
-                <div className="mb-4 flex items-center gap-2">
-                  <div className="rounded-lg bg-indigo-100 p-2 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400">
-                    <WandSparkles className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-gray-900 dark:text-gray-100">Auto-Import Data</h3>
-                    <p className="text-xs text-gray-500">Fetch details from external URL</p>
-                  </div>
-                </div>
-                <ScrapDetails onDataReceived={handleScrapedData} />
               </div>
             </div>
           </div>
