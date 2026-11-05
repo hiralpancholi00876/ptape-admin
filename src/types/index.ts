@@ -88,21 +88,13 @@ export interface Studio {
   is_active: number
 }
 
-export interface SocialLink {
-  name: string
-  link: string
-}
-
 export interface Pornstar {
   pstar_id: number
   name: string
-  // Stored as JSON; arrives as a string or already parsed depending on the column type.
-  social_links: string | SocialLink[] | null
   video_count: number
   total_views: number
   slug: string
   is_active: number
-  profile_pic: string | null
 }
 
 export interface Category {
