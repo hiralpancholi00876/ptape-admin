@@ -11,8 +11,6 @@ import {
   Eye,
   Clock,
   Plus,
-  Flag,
-  FlagOff,
   SquareCheckBig,
   Square,
   LoaderCircle,
@@ -38,7 +36,6 @@ interface Video {
   studios: string[];
   pstars: string[];
   is_active: number;
-  is_dmca: number;
 }
 
 function ActionButton({
@@ -173,39 +170,6 @@ export default function VideoListPage() {
       await axios.post(`/delete`, { id: video_id, type: 'video' });
       setVideoList((prev) => prev.filter((video) => video.video_id !== video_id));
       Swal.fire('Deleted!', 'Your video has been deleted.', 'success');
-    }
-  };
-
-  const handleDmca = async (video_id: number, isDmca: number) => {
-    const newDmcaStatus = isDmca === 1 ? 0 : 1;
-    const result = await Swal.fire({
-      title: 'Are you sure?',
-      text:
-        newDmcaStatus === 1
-          ? 'This will mark the video as DMCA takedown!'
-          : 'This will remove the DMCA flag!',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#3085d6',
-      cancelButtonColor: '#d33',
-      confirmButtonText: newDmcaStatus === 1 ? 'Mark DMCA' : 'Remove DMCA',
-    });
-
-    if (result.isConfirmed) {
-      await axios.post(`/video-dmca`, {
-        video_id,
-        action: newDmcaStatus === 1 ? 'remove' : 'restore',
-      });
-      setVideoList((prev) =>
-        prev.map((video) =>
-          video.video_id === video_id ? { ...video, is_dmca: newDmcaStatus } : video
-        )
-      );
-      Swal.fire(
-        'Success!',
-        newDmcaStatus === 1 ? 'Video marked as DMCA.' : 'DMCA removed from video.',
-        'success'
-      );
     }
   };
 
@@ -460,20 +424,6 @@ export default function VideoListPage() {
                     icon={Trash}
                     hoverColor="hover:text-red-600 hover:bg-red-50 dark:hover:bg-gray-700"
                   />
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDmca(video.video_id, video.is_dmca);
-                    }}
-                    className={`rounded-full p-1.5 transition-colors sm:p-2 ${video.is_dmca ? 'bg-green-50 text-green-600 dark:bg-green-900/20' : 'text-gray-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-gray-700'}`}
-                    title={video.is_dmca ? 'Remove DMCA' : 'Mark DMCA'}
-                  >
-                    {video.is_dmca ? (
-                      <FlagOff className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                    ) : (
-                      <Flag className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                    )}
-                  </button>
                 </div>
 
                 <div onClick={(e) => e.stopPropagation()}>
