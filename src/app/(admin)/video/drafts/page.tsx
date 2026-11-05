@@ -1,15 +1,15 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Plus,
   RefreshCw,
-  Trash2,
+  Trash,
   Search,
   Upload,
   Video as VideoIcon,
   Cloud,
-  CheckCircle,
+  CircleCheckBig,
   X,
   Star,
   Sparkles,
@@ -20,6 +20,7 @@ import Swal from 'sweetalert2';
 import { timeAgo, NO_THUMBNAIL_IMAGE } from '@/utils/commonFunc';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 
 interface Video {
   id: number;
@@ -28,7 +29,8 @@ interface Video {
   link: string;
   datetime?: string;
   status: string | undefined;
-  scrap_data: any;
+  // AI-formatted metadata (title, studios, pornstars, meta fields, ...).
+  scrap_data: Record<string, unknown> | null;
   upload_status:
     | 'not_started'
     | 'queued'
@@ -39,7 +41,7 @@ interface Video {
     | 'failed'
     | 'stopped';
   upload_progress?: number;
-  webhook_data: any;
+  webhook_data: { type?: string; server?: string } | null;
   job_id: string | undefined;
   s3_key: string | null;
   s3_file_size: number | null;
@@ -68,54 +70,34 @@ const STATUS_FILTER_OPTIONS: { value: string; label: string }[] = [
   { value: 'best', label: 'Best Video' },
 ];
 
-function readBestLinks(): string[] {
-  try {
-    const raw = localStorage.getItem(BEST_LINKS_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter((l): l is string => typeof l === 'string') : [];
-  } catch {
-    return [];
-  }
-}
-
 export default function DirectUploadPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedLinks, setSelectedLinks] = useState<string[]>([]);
   const [showScrollButton, setShowScrollButton] = useState(false);
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [bestLinks, setBestLinks] = useState<string[]>([]);
+  const [storedFilter, setStatusFilter] = useLocalStorage(STATUS_FILTER_KEY, 'all');
+  const [storedBestLinks, setStoredBestLinks] = useLocalStorage(BEST_LINKS_KEY, '[]');
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // Restore status filter and best links from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem(STATUS_FILTER_KEY);
-    if (saved && STATUS_FILTER_OPTIONS.some((o) => o.value === saved)) {
-      setStatusFilter(saved);
+  const statusFilter = STATUS_FILTER_OPTIONS.some((o) => o.value === storedFilter)
+    ? storedFilter
+    : 'all';
+  const bestLinks = useMemo(() => {
+    try {
+      const parsed = JSON.parse(storedBestLinks);
+      return Array.isArray(parsed) ? parsed.filter((l): l is string => typeof l === 'string') : [];
+    } catch {
+      return [];
     }
-    setBestLinks(readBestLinks());
-  }, []);
-
-  const handleStatusFilterChange = (value: string) => {
-    setStatusFilter(value);
-    localStorage.setItem(STATUS_FILTER_KEY, value);
-  };
-
-  const persistBestLinks = (links: string[]) => {
-    setBestLinks(links);
-    localStorage.setItem(BEST_LINKS_KEY, JSON.stringify(links));
-  };
-
-  const isBest = (link: string) => bestLinks.includes(link);
+  }, [storedBestLinks]);
 
   const toggleBest = (links: string[]) => {
     const allAlreadyBest = links.length > 0 && links.every((l) => bestLinks.includes(l));
     const next = allAlreadyBest
       ? bestLinks.filter((l) => !links.includes(l))
       : Array.from(new Set([...bestLinks, ...links]));
-    persistBestLinks(next);
+    setStoredBestLinks(JSON.stringify(next));
     setSelectedLinks([]);
   };
 
@@ -132,10 +114,6 @@ export default function DirectUploadPage() {
     handleScroll();
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
-
-  const handleScrollToBottom = () => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
 
   // Fetch videos
   const {
@@ -361,7 +339,7 @@ export default function DirectUploadPage() {
             <div className="flex items-center gap-2">
               <select
                 value={statusFilter}
-                onChange={(e) => handleStatusFilterChange(e.target.value)}
+                onChange={(e) => setStatusFilter(e.target.value)}
                 className="h-10 cursor-pointer appearance-none rounded-xl border border-gray-200 bg-gray-100 px-3 pr-8 text-sm text-gray-700 hover:bg-gray-200 focus:ring-2 focus:ring-blue-500/30 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
               >
                 {STATUS_FILTER_OPTIONS.map((opt) => (
@@ -402,7 +380,7 @@ export default function DirectUploadPage() {
                     onClick={handleBulkDelete}
                     className="flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash className="h-4 w-4" />
                     Delete
                   </button>
                 </>
@@ -420,7 +398,7 @@ export default function DirectUploadPage() {
                 onClick={selectAll}
                 className="rounded-xl bg-gray-100 p-2 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600"
               >
-                <CheckCircle
+                <CircleCheckBig
                   className={`h-5 w-5 ${selectedLinks.length === filteredVideos.length && filteredVideos.length > 0 ? 'text-blue-600' : 'text-gray-500'}`}
                 />
               </button>
@@ -469,7 +447,7 @@ export default function DirectUploadPage() {
             {filteredVideos.map((video) => {
               const isSelected = selectedLinks.includes(video.link);
               const showUpload = isUploadable(video);
-              const videoIsBest = isBest(video.link);
+              const videoIsBest = bestLinks.includes(video.link);
 
               return (
                 <div
@@ -502,7 +480,7 @@ export default function DirectUploadPage() {
                     <div
                       className={`absolute top-2 left-2 flex h-6 w-6 items-center justify-center rounded-full border-2 transition ${isSelected ? 'border-blue-500 bg-blue-500' : 'border-white/70 bg-black/30'}`}
                     >
-                      {isSelected && <CheckCircle className="h-4 w-4 text-white" />}
+                      {isSelected && <CircleCheckBig className="h-4 w-4 text-white" />}
                     </div>
 
                     {/* Best video badge */}
@@ -596,7 +574,7 @@ export default function DirectUploadPage() {
                         className="flex-1 rounded-lg bg-red-50 p-2 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400"
                         title="Delete"
                       >
-                        <Trash2 className="mx-auto h-4 w-4" />
+                        <Trash className="mx-auto h-4 w-4" />
                       </button>
                     </div>
                   </div>
@@ -617,7 +595,7 @@ export default function DirectUploadPage() {
       {/* Scroll to bottom button */}
       {showScrollButton && (
         <button
-          onClick={handleScrollToBottom}
+          onClick={() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' })}
           className="fixed right-8 bottom-8 z-50 flex items-center justify-center rounded-full bg-blue-600 p-3 text-white shadow-lg transition-all hover:bg-blue-700"
           aria-label="Scroll to bottom"
         >

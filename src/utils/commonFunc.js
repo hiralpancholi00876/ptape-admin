@@ -1,43 +1,24 @@
-// Utility functions for formatting durations, numbers, and dates
-
-// Formats a duration in seconds to "HH:MM:SS" or "MM:SS"
+// Seconds -> "HH:MM:SS", or "MM:SS" when under an hour.
 function formatDuration(seconds) {
-  // Ensure a non-negative integer
-  const d = Math.max(0, Math.floor(seconds));
-
-  // Compute hours, minutes, seconds
-  const h = Math.floor(d / 3600);
-  const m = Math.floor((d % 3600) / 60);
-  const s = d % 60;
-
-  // Zero-pad components
-  const mm = String(m).padStart(2, '0');
-  const ss = String(s).padStart(2, '0');
-
-  // Return formatted string
+  const total = Math.max(0, Math.floor(seconds));
+  const h = Math.floor(total / 3600);
+  const mm = String(Math.floor((total % 3600) / 60)).padStart(2, '0');
+  const ss = String(total % 60).padStart(2, '0');
   return h > 0 ? `${String(h).padStart(2, '0')}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
-// Converts a number to a human-readable format with suffixes (K, M, B, T)
+// 1500 -> "1.5K", 2000000 -> "2M".
 function convertNumberToSuffix(num) {
-  if (num < 1e3) return num; // If number is less than 1000, return as is.
+  if (num < 1e3) return num;
 
   const suffixes = ['', 'K', 'M', 'B', 'T'];
-  const magnitude = Math.floor(Math.log10(num) / 3); // Find the power of 1000
-  const scaledNum = num / Math.pow(1000, magnitude); // Scale the number down
-
-  // Return the number without decimal if it's a whole number
-  const formattedNum = scaledNum % 1 === 0 ? scaledNum.toFixed(0) : scaledNum.toFixed(1);
-
-  return formattedNum + suffixes[magnitude]; // Append the appropriate suffix
+  const magnitude = Math.floor(Math.log10(num) / 3);
+  const scaled = num / Math.pow(1000, magnitude);
+  return (scaled % 1 === 0 ? scaled.toFixed(0) : scaled.toFixed(1)) + suffixes[magnitude];
 }
 
-// Converts a UTC date string to a human-readable "time ago" format
-function timeAgo(utcDateString) {
-  const now = new Date();
-  const past = new Date(utcDateString); // automatically local
-  const diffInSeconds = Math.floor((now - past) / 1000);
-
+function timeAgo(dateString) {
+  const diffInSeconds = Math.floor((new Date() - new Date(dateString)) / 1000);
   const units = [
     { label: 'year', seconds: 31536000 },
     { label: 'month', seconds: 2592000 },
@@ -53,37 +34,65 @@ function timeAgo(utcDateString) {
       return `${value} ${unit.label}${value !== 1 ? 's' : ''} ago`;
     }
   }
-
   return 'Just now';
 }
 
-// Formats a datetime string to "YYYY-MM-DD HH:mm:ss"
+const pad = (n) => String(n).padStart(2, '0');
+
+// Local datetime -> UTC "YYYY-MM-DD HH:mm:ss" for the API.
 function toUTC(datetimeStr) {
-  const date = new Date(datetimeStr);
-
-  // Get UTC components
-  const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(date.getUTCDate()).padStart(2, '0');
-  const hours = String(date.getUTCHours()).padStart(2, '0');
-  const mins = String(date.getUTCMinutes()).padStart(2, '0');
-  const secs = String(date.getUTCSeconds()).padStart(2, '0');
-
-  return `${year}-${month}-${day} ${hours}:${mins}:${secs}`;
+  const d = new Date(datetimeStr);
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
 }
 
-// Converts a UTC date string to a local datetime string in "YYYY-MM-DDTHH:MM" format
+// UTC datetime -> local "YYYY-MM-DDTHH:MM" for datetime-local inputs.
 function toLocal(utcString) {
-  const date = new Date(utcString);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
+  const d = new Date(utcString);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// Names -> react-select options.
+function toOptions(names = []) {
+  return names.map((name) => ({ value: name, label: name }));
+}
+
+// Stable background color for an avatar/initial, picked from the name.
+function getColorFromName(name) {
+  const colors = [
+    'bg-blue-500',
+    'bg-green-500',
+    'bg-yellow-500',
+    'bg-red-500',
+    'bg-purple-500',
+    'bg-pink-500',
+    'bg-indigo-500',
+    'bg-teal-500',
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return colors[Math.abs(hash) % colors.length];
+}
+
+// Removes both copies of the admin token: localStorage (sent by axios) and the cookie (checked by middleware).
+function clearAuthToken() {
+  localStorage.removeItem('token');
+  document.cookie =
+    'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=Strict; Secure';
 }
 
 const NO_THUMBNAIL_IMAGE =
   'https://media.istockphoto.com/id/1147544806/vector/no-thumbnail-image-vector-graphic.jpg';
 
-export { formatDuration, convertNumberToSuffix, timeAgo, toUTC, toLocal, NO_THUMBNAIL_IMAGE };
+export {
+  formatDuration,
+  convertNumberToSuffix,
+  timeAgo,
+  toUTC,
+  toLocal,
+  toOptions,
+  getColorFromName,
+  clearAuthToken,
+  NO_THUMBNAIL_IMAGE,
+};

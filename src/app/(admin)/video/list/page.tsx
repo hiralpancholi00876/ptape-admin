@@ -1,9 +1,9 @@
 'use client';
 import PageBreadcrumb from '@/components/common/PageBreadCrumb';
 import ToggleSwitch from '@/components/form/switch/Switch';
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import Badge from '@/components/ui/badge/Badge';
-import { redirect } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { formatDuration, convertNumberToSuffix, timeAgo } from '@/utils/commonFunc';
 import {
   Pencil,
@@ -13,9 +13,9 @@ import {
   Plus,
   Flag,
   FlagOff,
-  CheckSquare,
+  SquareCheckBig,
   Square,
-  Loader2,
+  LoaderCircle,
   X,
   ChevronLeft,
   ChevronRight,
@@ -41,49 +41,45 @@ interface Video {
   is_dmca: number;
 }
 
+function ActionButton({
+  onClick,
+  title,
+  icon: Icon,
+  hoverColor,
+}: {
+  onClick: (e: React.MouseEvent) => void;
+  title: string;
+  icon: React.ElementType;
+  hoverColor: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-full p-1.5 text-gray-500 sm:p-2 ${hoverColor} transition-colors`}
+      title={title}
+    >
+      <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+    </button>
+  );
+}
+
 export default function VideoListPage() {
+  const router = useRouter();
   const [videoList, setVideoList] = useState<Video[]>([]);
-  const [currentPage, setCurrentPage] = useState(1);
+  // Resume on the last viewed page. Nothing rendered before the first fetch depends on it,
+  // so reading localStorage here can't cause a hydration mismatch.
+  const [currentPage, setCurrentPage] = useState(() =>
+    typeof window === 'undefined' ? 1 : Number(localStorage.getItem('currentPage')) || 1
+  );
   const [totalPages, setTotalPages] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedVideos, setSelectedVideos] = useState<number[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isInitialized, setIsInitialized] = useState(false);
-
-  useEffect(() => {
-    const savedPage = localStorage.getItem('currentPage');
-    if (savedPage) setCurrentPage(Number(savedPage));
-    setIsInitialized(true);
-  }, []);
-
-  const fetchVideos = useCallback(
-    async (page = 1, query = '') => {
-      if (isLoading) return;
-      setIsLoading(true);
-      try {
-        const searchParam = query ? `&search=${encodeURIComponent(query)}` : '';
-        const response = await axios.get(`/videos?page=${page}${searchParam}`);
-
-        if (response.data.success && response.data.message !== 'No data') {
-          setVideoList(response.data.data.videos || []);
-          setTotalPages(response.data.data.pagination.totalPages || 1);
-          localStorage.setItem('currentPage', response.data.data.pagination.currentPage.toString());
-          setCurrentPage(response.data.data.pagination.currentPage || 1);
-        } else {
-          setVideoList([]);
-          setTotalPages(1);
-        }
-      } catch {
-        setVideoList([]);
-        setTotalPages(1);
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [isLoading]
-  );
+  // Loading until the response for the current page + search has arrived.
+  const requestKey = `${currentPage}:${debouncedSearch}`;
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const isLoading = loadedKey !== requestKey;
 
   useEffect(() => {
     const handler = setTimeout(() => setDebouncedSearch(searchQuery), 800);
@@ -91,14 +87,37 @@ export default function VideoListPage() {
   }, [searchQuery]);
 
   useEffect(() => {
-    if (debouncedSearch !== '') setCurrentPage(1);
-  }, [debouncedSearch]);
+    // Ignore responses that arrive after the page or search has changed again.
+    let stale = false;
+    const showEmpty = () => {
+      setVideoList([]);
+      setTotalPages(1);
+    };
 
-  useEffect(() => {
-    if (!isInitialized) return;
-    fetchVideos(currentPage, debouncedSearch);
+    axios
+      .get('/videos', { params: { page: currentPage, search: debouncedSearch || undefined } })
+      .then(({ data }) => {
+        if (stale) return;
+        const pagination = data.data?.pagination;
+        if (!data.success || !pagination) return showEmpty();
+
+        setVideoList(data.data.videos);
+        setTotalPages(pagination.totalPages || 1);
+        localStorage.setItem('currentPage', String(pagination.currentPage));
+      })
+      .catch(() => !stale && showEmpty())
+      .finally(() => !stale && setLoadedKey(requestKey));
+
+    return () => {
+      stale = true;
+    };
+  }, [requestKey, currentPage, debouncedSearch]);
+
+  const changeSearch = (value: string) => {
+    setSearchQuery(value);
+    setCurrentPage(1);
     setSelectedVideos([]);
-  }, [currentPage, debouncedSearch, isInitialized]);
+  };
 
   const toggleSelectVideo = (videoId: number) => {
     setSelectedVideos((prev) =>
@@ -206,6 +225,7 @@ export default function VideoListPage() {
   const handlePageChange = (newPage: number) => {
     if (!isLoading && newPage > 0 && newPage <= totalPages && newPage !== currentPage) {
       setCurrentPage(newPage);
+      setSelectedVideos([]);
     }
   };
 
@@ -233,26 +253,6 @@ export default function VideoListPage() {
     return rangeWithDots;
   };
 
-  const ActionButton = ({
-    onClick,
-    title,
-    icon: Icon,
-    hoverColor,
-  }: {
-    onClick: (e: React.MouseEvent) => void;
-    title: string;
-    icon: React.ElementType;
-    hoverColor: string;
-  }) => (
-    <button
-      onClick={onClick}
-      className={`rounded-full p-1.5 text-gray-500 sm:p-2 ${hoverColor} transition-colors`}
-      title={title}
-    >
-      <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-    </button>
-  );
-
   return (
     <div className="min-h-screen p-3 sm:p-4 md:p-6 dark:bg-gray-900">
       <PageBreadcrumb pageTitle="Video Management" />
@@ -278,7 +278,7 @@ export default function VideoListPage() {
             className="flex items-center gap-1.5 rounded-full bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-70 sm:gap-2 sm:px-4 sm:py-2"
           >
             {isDeleting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <LoaderCircle className="h-4 w-4 animate-spin" />
             ) : (
               <Trash className="h-4 w-4" />
             )}
@@ -296,16 +296,13 @@ export default function VideoListPage() {
             type="text"
             placeholder="Search videos..."
             value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setCurrentPage(1);
-            }}
+            onChange={(e) => changeSearch(e.target.value)}
             className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pr-10 pl-10 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none sm:text-base dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
           />
           <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
           {searchQuery && (
             <button
-              onClick={() => setSearchQuery('')}
+              onClick={() => changeSearch('')}
               className="absolute top-1/2 right-3 -translate-y-1/2 text-gray-400 hover:text-gray-600"
             >
               <X className="h-4 w-4" />
@@ -316,7 +313,7 @@ export default function VideoListPage() {
         {/* Action Buttons */}
         <div className="no-scrollbar flex items-center gap-2 overflow-x-auto pb-1">
           <button
-            onClick={() => redirect('/video/add')}
+            onClick={() => router.push('/video/add')}
             className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium whitespace-nowrap text-white hover:bg-blue-700"
           >
             <Plus className="h-4 w-4" />
@@ -324,7 +321,7 @@ export default function VideoListPage() {
           </button>
 
           <button
-            onClick={() => redirect('/video/drafts')}
+            onClick={() => router.push('/video/drafts')}
             className="flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-2 text-sm font-medium whitespace-nowrap text-white hover:bg-green-700"
           >
             <Cloud className="h-4 w-4" />
@@ -340,7 +337,7 @@ export default function VideoListPage() {
               }`}
             >
               {selectedVideos.length === videoList.length ? (
-                <CheckSquare className="h-4 w-4" />
+                <SquareCheckBig className="h-4 w-4" />
               ) : (
                 <Square className="h-4 w-4" />
               )}
@@ -381,7 +378,7 @@ export default function VideoListPage() {
                     : 'border-gray-300 bg-white/90 text-transparent dark:bg-gray-800/90'
                 }`}
               >
-                <CheckSquare className="h-3 w-3 sm:h-4 sm:w-4" />
+                <SquareCheckBig className="h-3 w-3 sm:h-4 sm:w-4" />
               </div>
             </div>
 
@@ -419,12 +416,7 @@ export default function VideoListPage() {
 
               <div className="mb-1.5 flex h-5 flex-wrap gap-1 sm:mb-2 sm:h-6">
                 {video.studios.slice(0, 2).map((studio, i) => (
-                  <Badge
-                    key={i}
-                    variant="solid"
-                    color="primary"
-                    className="px-1 py-0.5 text-[8px] sm:px-1.5"
-                  >
+                  <Badge key={i} variant="solid" color="primary">
                     {studio}
                   </Badge>
                 ))}
@@ -432,12 +424,7 @@ export default function VideoListPage() {
 
               <div className="mb-3 flex h-5 flex-wrap gap-1 sm:mb-4 sm:h-6">
                 {video.pstars?.slice(0, 2).map((pstar, i) => (
-                  <Badge
-                    key={i}
-                    variant="solid"
-                    color="dark"
-                    className="px-1 py-0.5 text-[8px] sm:px-1.5"
-                  >
+                  <Badge key={i} variant="solid" color="dark">
                     {pstar}
                   </Badge>
                 ))}
@@ -449,7 +436,7 @@ export default function VideoListPage() {
                   <ActionButton
                     onClick={(e) => {
                       e.stopPropagation();
-                      redirect(`/video/details/${video.slug}`);
+                      router.push(`/video/details/${video.slug}`);
                     }}
                     title="View"
                     icon={Eye}
@@ -458,7 +445,7 @@ export default function VideoListPage() {
                   <ActionButton
                     onClick={(e) => {
                       e.stopPropagation();
-                      redirect(`/video/edit/${video.slug}`);
+                      router.push(`/video/edit/${video.slug}`);
                     }}
                     title="Edit"
                     icon={Pencil}
@@ -491,8 +478,6 @@ export default function VideoListPage() {
 
                 <div onClick={(e) => e.stopPropagation()}>
                   <ToggleSwitch
-                    label=""
-                    size="sm"
                     checked={video.is_active === 1}
                     onChange={(checked) => handleToggle(video.video_id, checked)}
                   />
@@ -551,7 +536,7 @@ export default function VideoListPage() {
           </p>
           {searchQuery && (
             <button
-              onClick={() => setSearchQuery('')}
+              onClick={() => changeSearch('')}
               className="mt-3 text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline sm:mt-4"
             >
               Clear Search

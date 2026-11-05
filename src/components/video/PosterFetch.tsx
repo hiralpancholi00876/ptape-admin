@@ -4,7 +4,7 @@ import Input from '@/components/form/input/InputField';
 
 interface PosterDetailsProps<T extends FieldValues> {
   control: Control<T>;
-  errors: FieldErrors<any>;
+  errors: FieldErrors;
   watch: (field: string) => string;
 }
 

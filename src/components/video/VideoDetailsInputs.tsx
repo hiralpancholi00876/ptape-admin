@@ -5,7 +5,7 @@ import TextArea from '@/components/form/input/TextArea';
 
 interface VideoDetailsProps<T extends FieldValues> {
   control: Control<T>;
-  errors: FieldErrors<any>;
+  errors: FieldErrors;
 }
 
 function VideoDetails<T extends FieldValues>({ control, errors }: VideoDetailsProps<T>) {

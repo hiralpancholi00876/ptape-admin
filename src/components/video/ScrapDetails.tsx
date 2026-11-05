@@ -1,11 +1,32 @@
 import React, { useState } from 'react';
+import { isAxiosError } from 'axios';
 import axios from '@/utils/axios';
 import Label from '@/components/form/Label';
 import Input from '@/components/form/input/InputField';
 
-interface ScrapDetailsProps {
-  onDataReceived?: (data: any) => void;
+// What /scrap-video returns (only the requested fields are present).
+export interface ScrapedVideo {
+  title?: string;
+  description?: string;
+  thumbnail?: string | null;
+  duration?: string;
+  studios?: string[] | string; // freshporno.net returns one concatenated string
+  pornstars?: string[];
+  categories?: string[];
 }
+
+interface ScrapDetailsProps {
+  onDataReceived?: (data: ScrapedVideo | undefined) => void;
+}
+
+const AVAILABLE_FIELDS = [
+  { key: 'title', label: 'Title' },
+  { key: 'description', label: 'Description' },
+  { key: 'studios', label: 'Studios' },
+  { key: 'pornstars', label: 'Pornstars' },
+  { key: 'categories', label: 'Categories' },
+  { key: 'thumbnail', label: 'Thumbnail' },
+];
 
 const ScrapDetails: React.FC<ScrapDetailsProps> = ({ onDataReceived }) => {
   const [url, setUrl] = useState('');
@@ -13,34 +34,13 @@ const ScrapDetails: React.FC<ScrapDetailsProps> = ({ onDataReceived }) => {
   const [error, setError] = useState<string | null>(null);
   const [selectedFields, setSelectedFields] = useState<string[]>([]);
 
-  const availableFields = [
-    { key: 'title', label: 'Title' },
-    { key: 'description', label: 'Description' },
-    { key: 'studios', label: 'Studios' },
-    { key: 'pornstars', label: 'Pornstars' },
-    { key: 'categories', label: 'Categories' },
-    { key: 'thumbnail', label: 'Thumbnail' },
-  ];
+  const isAllSelected = selectedFields.length === AVAILABLE_FIELDS.length;
 
-  const handleFieldChange = (field: string) => {
-    setSelectedFields((prev) => {
-      if (prev.includes(field)) {
-        return prev.filter((f) => f !== field);
-      } else {
-        return [...prev, field];
-      }
-    });
+  const toggleField = (field: string) => {
+    setSelectedFields((prev) =>
+      prev.includes(field) ? prev.filter((f) => f !== field) : [...prev, field]
+    );
   };
-
-  const handleSelectAll = () => {
-    if (selectedFields.length === availableFields.length) {
-      setSelectedFields([]);
-    } else {
-      setSelectedFields(availableFields.map((f) => f.key));
-    }
-  };
-
-  const isAllSelected = selectedFields.length === availableFields.length;
 
   const handleSubmit = async () => {
     if (!url.trim()) {
@@ -52,23 +52,16 @@ const ScrapDetails: React.FC<ScrapDetailsProps> = ({ onDataReceived }) => {
       setLoading(true);
       setError(null);
 
-      // If all fields are selected, send empty array, otherwise send selected fields
-      const fieldsToSend = isAllSelected ? [] : selectedFields;
-
-      const response = await axios.post('/scrap-video', {
+      // An empty field list asks the API for every field.
+      const response = await axios.post<{ data?: ScrapedVideo }>('/scrap-video', {
         url: url.trim(),
-        fields: fieldsToSend,
+        fields: isAllSelected ? [] : selectedFields,
       });
-
-      if (response.data && onDataReceived) {
-        onDataReceived(response.data.data);
-      }
-
-      console.log('Video details fetched successfully:', response.data);
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || 'Failed to fetch video details';
-      setError(errorMessage);
-      console.error('Error fetching video details:', error);
+      onDataReceived?.(response.data.data);
+    } catch (error) {
+      setError(
+        (isAxiosError(error) && error.response?.data?.message) || 'Failed to fetch video details'
+      );
     } finally {
       setLoading(false);
     }
@@ -95,7 +88,9 @@ const ScrapDetails: React.FC<ScrapDetailsProps> = ({ onDataReceived }) => {
               <input
                 type="checkbox"
                 checked={isAllSelected}
-                onChange={handleSelectAll}
+                onChange={() =>
+                  setSelectedFields(isAllSelected ? [] : AVAILABLE_FIELDS.map((f) => f.key))
+                }
                 disabled={loading}
                 style={{ marginRight: '8px' }}
               />
@@ -110,7 +105,7 @@ const ScrapDetails: React.FC<ScrapDetailsProps> = ({ onDataReceived }) => {
               paddingLeft: '20px',
             }}
           >
-            {availableFields.map((field) => (
+            {AVAILABLE_FIELDS.map((field) => (
               <label
                 key={field.key}
                 style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
@@ -118,7 +113,7 @@ const ScrapDetails: React.FC<ScrapDetailsProps> = ({ onDataReceived }) => {
                 <input
                   type="checkbox"
                   checked={selectedFields.includes(field.key)}
-                  onChange={() => handleFieldChange(field.key)}
+                  onChange={() => toggleField(field.key)}
                   disabled={loading}
                   style={{ marginRight: '8px' }}
                 />

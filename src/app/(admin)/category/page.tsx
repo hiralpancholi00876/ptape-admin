@@ -1,18 +1,18 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import PageBreadcrumb from '@/components/common/PageBreadCrumb';
 import axios from '@/utils/axios';
-import { Search, Plus, Film, Pencil, Trash2, Loader2, RefreshCcw } from 'lucide-react';
+import { getColorFromName } from '@/utils/commonFunc';
+import { Search, Plus, Film, Pencil, Trash, LoaderCircle, RefreshCcw, X } from 'lucide-react';
 import ToggleSwitch from '@/components/form/switch/Switch';
 import Label from '@/components/form/Label';
 import Input from '@/components/form/input/InputField';
 import Button from '@/components/ui/button/Button';
 import { Modal } from '@/components/ui/modal';
-import { useModal } from '@/hooks/useModal';
+import { useEntityList } from '@/hooks/useEntityList';
 import Swal from 'sweetalert2';
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useInView } from 'react-intersection-observer';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface Category {
   category_id: number;
@@ -22,194 +22,26 @@ interface Category {
   is_active: number;
 }
 
-// Generate a color based on name
-const getColorFromName = (name: string) => {
-  const colors = [
-    'bg-blue-500',
-    'bg-green-500',
-    'bg-yellow-500',
-    'bg-red-500',
-    'bg-purple-500',
-    'bg-pink-500',
-    'bg-indigo-500',
-    'bg-teal-500',
-  ];
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return colors[Math.abs(hash) % colors.length];
-};
-
 export default function CategoryPage() {
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [debouncedSearch, setDebouncedSearch] = useState<string>('');
-  const queryClient = useQueryClient();
-  const { ref, inView } = useInView();
-
-  const { isOpen, openModal, closeModal } = useModal();
-  const { isOpen: isOpenEdit, openModal: openModalEdit, closeModal: closeModalEdit } = useModal();
-  const [editData, setEditData] = useState<{ category_id: number | null; name: string }>({
-    category_id: null,
-    name: '',
-  });
-
-  // Debounce Search
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearch(searchQuery);
-    }, 500);
-    return () => clearTimeout(handler);
-  }, [searchQuery]);
-
-  // Fetch Categories Function for Infinite Query
-  const fetchCategories = async ({ pageParam = 1 }: { pageParam?: number }) => {
-    const response = await axios.get('/categories', {
-      params: {
-        page: pageParam,
-        limit: 20,
-        search: debouncedSearch,
-      },
-    });
-
-    let categoriesData: Category[] = [];
-    let hasMore = false;
-
-    if (response.data.success) {
-      if (response.data.data && Array.isArray(response.data.data)) {
-        categoriesData = response.data.data;
-        if (response.data.pagination) {
-          hasMore = pageParam < response.data.pagination.total_pages;
-        } else {
-          hasMore = categoriesData.length === 20;
-        }
-      }
-    } else {
-      // throw new Error(response.data.message || "Failed to fetch");
-      // Handle gracefully if API structure differs slightly, but typically we want to throw to let React Query handle error state
-    }
-
-    return {
-      data: categoriesData,
-      nextCursor: hasMore ? pageParam + 1 : undefined,
-      hasMore,
-    };
-  };
-
-  const { data, error, fetchNextPage, hasNextPage, isFetchingNextPage, status, refetch } =
-    useInfiniteQuery({
-      queryKey: ['categories', debouncedSearch],
-      queryFn: fetchCategories,
-      getNextPageParam: (lastPage) => lastPage.nextCursor,
-      initialPageParam: 1,
-    });
-
-  useEffect(() => {
-    if (inView && hasNextPage) {
-      fetchNextPage();
-    }
-  }, [inView, hasNextPage, fetchNextPage]);
-
-  // Delete Mutation
-  const deleteMutation = useMutation({
-    mutationFn: async (categoryId: number) => {
-      return axios.post(`/delete`, {
-        id: categoryId,
-        type: 'category',
-      });
-    },
-    onSuccess: () => {
-      Swal.fire('Deleted!', 'Category has been deleted.', 'success');
-      queryClient.invalidateQueries({ queryKey: ['categories'] });
-    },
-    onError: () => {
-      Swal.fire('Error', 'Failed to delete category', 'error');
-    },
-  });
-
-  const handleDeleteCategory = async (categoryId: number) => {
-    Swal.fire({
-      title: 'Are you sure?',
-      text: "You won't be able to revert this!",
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#3085d6',
-      cancelButtonColor: '#d33',
-      confirmButtonText: 'Yes, delete it!',
-    }).then((result) => {
-      if (result.isConfirmed) {
-        deleteMutation.mutate(categoryId);
-      }
-    });
-  };
-
-  // Toggle Active Mutation
-  const toggleMutation = useMutation({
-    mutationFn: async ({ id, isActive }: { id: number; isActive: boolean }) => {
-      return axios.post(`/active-inactive`, {
-        id,
-        type: 'category',
-        action: isActive,
-      });
-    },
-    onMutate: async ({ id, isActive }) => {
-      await queryClient.cancelQueries({ queryKey: ['categories', debouncedSearch] });
-      const previousData = queryClient.getQueryData(['categories', debouncedSearch]);
-
-      queryClient.setQueryData(['categories', debouncedSearch], (old: any) => {
-        if (!old) return old;
-        return {
-          ...old,
-          pages: old.pages.map((page: any) => ({
-            ...page,
-            data: page.data.map((category: Category) =>
-              category.category_id === id ? { ...category, is_active: isActive ? 1 : 0 } : category
-            ),
-          })),
-        };
-      });
-      return { previousData };
-    },
-    onError: (err, newTodo, context: any) => {
-      queryClient.setQueryData(['categories', debouncedSearch], context.previousData);
-      Swal.fire({
-        icon: 'error',
-        title: 'Oops...',
-        text: 'Something went wrong!',
-        toast: true,
-        position: 'top-end',
-        showConfirmButton: false,
-        timer: 3000,
-      });
-    },
-  });
-
-  const handleToggle = (category_id: number, isActive: boolean) => {
-    toggleMutation.mutate({ id: category_id, isActive });
-  };
-
-  const categories = data?.pages.flatMap((page) => page.data) || [];
+  const {
+    searchQuery,
+    setSearchQuery,
+    items: categories,
+    error,
+    status,
+    refetch,
+    hasNextPage,
+    isFetchingNextPage,
+    loadMoreRef,
+    deleteItem,
+    toggleActive,
+  } = useEntityList<Category>({ endpoint: 'categories', type: 'category', idKey: 'category_id' });
+  // null = closed, {} = add, { category } = edit
+  const [modal, setModal] = useState<{ category?: Category } | null>(null);
 
   return (
     <div className="p-4 md:p-6">
-      {isOpen && (
-        <AddCategoryModal
-          onClose={() => {
-            closeModal();
-            queryClient.invalidateQueries({ queryKey: ['categories'] });
-          }}
-        />
-      )}
-      {isOpenEdit && (
-        <EditCategoryModal
-          category_id={editData.category_id}
-          name={editData.name}
-          onClose={() => {
-            closeModalEdit();
-            queryClient.invalidateQueries({ queryKey: ['categories'] });
-          }}
-        />
-      )}
+      {modal && <CategoryFormModal category={modal.category} onClose={() => setModal(null)} />}
 
       {/* Page Breadcrumb */}
       <PageBreadcrumb pageTitle="Categories" />
@@ -247,7 +79,7 @@ export default function CategoryPage() {
           <Button
             className="flex items-center rounded-lg bg-blue-600 px-4 py-2 text-white shadow-md transition-colors hover:bg-blue-700 hover:shadow-lg"
             size="sm"
-            onClick={openModal}
+            onClick={() => setModal({})}
           >
             <Plus size={18} className="mr-2" />
             Add New Category
@@ -259,7 +91,7 @@ export default function CategoryPage() {
       {status === 'error' && (
         <div className="mb-4 flex items-center rounded border border-red-200 bg-red-50 px-4 py-3 text-red-700">
           <span className="mr-2">⚠️</span>
-          {(error as Error)?.message || 'An error occurred'}
+          {error?.message || 'An error occurred'}
         </div>
       )}
 
@@ -313,13 +145,7 @@ export default function CategoryPage() {
                     <button
                       className="group/btn rounded-lg border border-transparent p-2 text-gray-400 transition-all hover:border-blue-100 hover:bg-white hover:text-blue-600 hover:shadow-sm dark:hover:bg-gray-700 dark:hover:text-blue-400"
                       title="Edit Category"
-                      onClick={() => {
-                        setEditData({
-                          category_id: category.category_id,
-                          name: category.name,
-                        });
-                        openModalEdit();
-                      }}
+                      onClick={() => setModal({ category })}
                     >
                       <Pencil
                         size={18}
@@ -328,20 +154,16 @@ export default function CategoryPage() {
                     </button>
 
                     <button
-                      onClick={() => handleDeleteCategory(category.category_id)}
+                      onClick={() => deleteItem(category.category_id)}
                       className="group/btn rounded-lg border border-transparent p-2 text-gray-400 transition-all hover:border-red-100 hover:bg-white hover:text-red-500 hover:shadow-sm dark:hover:bg-gray-700 dark:hover:text-red-400"
                       title="Delete Category"
                     >
-                      <Trash2
-                        size={18}
-                        className="transition-transform group-hover/btn:scale-110"
-                      />
+                      <Trash size={18} className="transition-transform group-hover/btn:scale-110" />
                     </button>
                   </div>
                   <ToggleSwitch
-                    label=""
                     checked={category.is_active === 1}
-                    onChange={(checked) => handleToggle(category.category_id, checked)}
+                    onChange={(checked) => toggleActive(category.category_id, checked)}
                   />
                 </div>
               </div>
@@ -386,7 +208,7 @@ export default function CategoryPage() {
           )}
 
           {/* Intersection Observer Target */}
-          <div ref={ref} className="col-span-full flex h-10 w-full justify-center p-4">
+          <div ref={loadMoreRef} className="col-span-full flex h-10 w-full justify-center p-4">
             {isFetchingNextPage ? null : hasNextPage ? (
               <span className="text-sm text-gray-400">Scroll for more...</span>
             ) : categories.length > 0 ? (
@@ -397,218 +219,93 @@ export default function CategoryPage() {
       )}
     </div>
   );
+}
 
-  function AddCategoryModal({ onClose }: { onClose: () => void }) {
-    const [categoryName, setCategoryName] = useState('');
-    const [isSubmitting, setIsSubmitting] = useState(false);
+function CategoryFormModal({ category, onClose }: { category?: Category; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [name, setName] = useState(category?.name ?? '');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const action = category ? 'update' : 'add';
 
-    const handleSave = async (e: React.FormEvent) => {
-      e.preventDefault();
-      setIsSubmitting(true);
-
-      try {
-        const payload = {
-          name: categoryName,
-        };
-
-        const response = await axios.post('/add-category', payload);
-
-        if (response.data.success) {
-          onClose();
-          Swal.fire({
-            title: 'Success',
-            text: 'Category added successfully!',
-            icon: 'success',
-            timer: 2000,
-            showConfirmButton: false,
-          });
-        } else {
-          Swal.fire({
-            title: 'Error',
-            text: 'Failed to add category',
-            icon: 'error',
-          });
-        }
-      } catch (error) {
-        Swal.fire({
-          title: 'Error',
-          text: 'Failed to add category',
-          icon: 'error',
-        });
-      } finally {
-        setIsSubmitting(false);
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const response = category
+        ? await axios.post('/edit-category', { category_id: category.category_id, name })
+        : await axios.post('/add-category', { name });
+      if (!response.data.success) {
+        throw new Error(response.data.message);
       }
-    };
 
-    return (
-      <Modal isOpen={true} onClose={onClose} className="max-w-[480px] rounded-2xl p-6">
-        <div className="mb-6 flex items-center justify-between">
-          <h4 className="text-xl font-bold text-gray-900 dark:text-white">New Category</h4>
-          <button
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      onClose();
+      Swal.fire({
+        title: 'Success',
+        text: `Category ${action === 'add' ? 'added' : 'updated'} successfully!`,
+        icon: 'success',
+        timer: 2000,
+        showConfirmButton: false,
+      });
+    } catch {
+      Swal.fire({ title: 'Error', text: `Failed to ${action} category`, icon: 'error' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal isOpen onClose={onClose} className="max-w-[480px] rounded-2xl p-6">
+      <div className="mb-6 flex items-center justify-between">
+        <h4 className="text-xl font-bold text-gray-900 dark:text-white">
+          {category ? 'Edit Category' : 'New Category'}
+        </h4>
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+        >
+          <span className="sr-only">Close</span>
+          <X className="h-6 w-6" />
+        </button>
+      </div>
+
+      <form onSubmit={handleSave}>
+        <Label>Category Name</Label>
+        <Input
+          type="text"
+          placeholder="e.g. Amateur"
+          required
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+
+        <div className="mt-8 flex w-full items-center justify-end gap-3">
+          <Button
+            size="sm"
+            variant="outline"
             type="button"
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            disabled={isSubmitting}
           >
-            <span className="sr-only">Close</span>
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-
-        <form className="" onSubmit={handleSave}>
-          <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
-            <div className="col-span-1 sm:col-span-2">
-              <Label>Category Name</Label>
-              <Input
-                type="text"
-                placeholder="e.g. Amateur"
-                required={true}
-                value={categoryName}
-                onChange={(e) => setCategoryName(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="mt-8 flex w-full items-center justify-end gap-3">
-            <Button
-              size="sm"
-              variant="outline"
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              type="submit"
-              disabled={isSubmitting}
-              className="min-w-[100px] bg-blue-600 text-white hover:bg-blue-700"
-            >
-              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create Category'}
-            </Button>
-          </div>
-        </form>
-      </Modal>
-    );
-  }
-
-  function EditCategoryModal({
-    category_id,
-    name,
-    onClose,
-  }: {
-    category_id: number | null;
-    name: string;
-    onClose: () => void;
-  }) {
-    const [categoryName, setCategoryName] = useState(name);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-
-    useEffect(() => {
-      setCategoryName(name);
-    }, [name]);
-
-    const handleSave = async (e: React.FormEvent) => {
-      e.preventDefault();
-      setIsSubmitting(true);
-      try {
-        const payload = {
-          category_id: category_id,
-          name: categoryName,
-        };
-
-        const response = await axios.post('/edit-category', payload);
-
-        if (response.data.success) {
-          onClose();
-          Swal.fire({
-            title: 'Success',
-            text: 'Category updated successfully!',
-            icon: 'success',
-            timer: 2000,
-            showConfirmButton: false,
-          });
-        } else {
-          Swal.fire({
-            title: 'Error',
-            text: 'Failed to update category',
-            icon: 'error',
-          });
-        }
-      } catch (error) {
-        Swal.fire({
-          title: 'Error',
-          text: 'Failed to update category',
-          icon: 'error',
-        });
-      } finally {
-        setIsSubmitting(false);
-      }
-    };
-
-    return (
-      <Modal isOpen={true} onClose={onClose} className="max-w-[480px] rounded-2xl p-6">
-        <div className="mb-6 flex items-center justify-between">
-          <h4 className="text-xl font-bold text-gray-900 dark:text-white">Edit Category</h4>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            type="submit"
+            disabled={isSubmitting}
+            className="min-w-[100px] bg-blue-600 text-white hover:bg-blue-700"
           >
-            <span className="sr-only">Close</span>
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
+            {isSubmitting ? (
+              <LoaderCircle className="h-4 w-4 animate-spin" />
+            ) : category ? (
+              'Save Changes'
+            ) : (
+              'Create Category'
+            )}
+          </Button>
         </div>
-
-        <form className="" onSubmit={handleSave}>
-          <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
-            <div className="col-span-1 sm:col-span-2">
-              <Label>Category Name</Label>
-              <Input
-                type="text"
-                placeholder="e.g. Amateur"
-                defaultValue={name}
-                required={true}
-                onChange={(e) => setCategoryName(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="mt-8 flex w-full items-center justify-end gap-3">
-            <Button
-              size="sm"
-              variant="outline"
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              type="submit"
-              disabled={isSubmitting}
-              className="min-w-[100px] bg-blue-600 text-white hover:bg-blue-700"
-            >
-              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save Changes'}
-            </Button>
-          </div>
-        </form>
-      </Modal>
-    );
-  }
+      </form>
+    </Modal>
+  );
 }

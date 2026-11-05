@@ -1,19 +1,19 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import PageBreadcrumb from '@/components/common/PageBreadCrumb';
 import axios from '@/utils/axios';
+import { getColorFromName } from '@/utils/commonFunc';
 import {
   Eye,
-  Globe,
   Film,
   Search,
   Plus,
   Pencil,
-  Trash2,
+  Trash,
   Check,
   X,
-  Loader2,
+  LoaderCircle,
   RefreshCcw,
 } from 'lucide-react';
 import ToggleSwitch from '@/components/form/switch/Switch';
@@ -21,15 +21,17 @@ import Label from '@/components/form/Label';
 import Input from '@/components/form/input/InputField';
 import Button from '@/components/ui/button/Button';
 import { Modal } from '@/components/ui/modal';
-import { useModal } from '@/hooks/useModal';
+import { useEntityList } from '@/hooks/useEntityList';
 import Swal from 'sweetalert2';
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useInView } from 'react-intersection-observer';
+import { useQueryClient } from '@tanstack/react-query';
+
+type SocialLink = { name: string; link: string };
 
 interface Pornstar {
   pstar_id: number;
   name: string;
-  social_links: string | null;
+  // Stored as JSON; arrives as a string or already parsed depending on the column type.
+  social_links: string | SocialLink[] | null;
   video_count: number;
   total_views: number;
   slug: string;
@@ -37,213 +39,42 @@ interface Pornstar {
   profile_pic: string | null;
 }
 
-// Generate initials for profile picture placeholder
+const EMPTY_LINK: SocialLink = { name: '', link: '' };
+
+const compactNumber = new Intl.NumberFormat('en-US', {
+  notation: 'compact',
+  compactDisplay: 'short',
+});
+
 const getInitials = (name: string) => {
   const names = name.split(' ');
-  if (names.length === 1) {
-    return names[0].charAt(0).toUpperCase();
-  }
-  return (names[0].charAt(0) + names[names.length - 1].charAt(0)).toUpperCase();
-};
-
-// Generate a color based on name
-const getColorFromName = (name: string) => {
-  const colors = [
-    'bg-blue-500',
-    'bg-green-500',
-    'bg-yellow-500',
-    'bg-red-500',
-    'bg-purple-500',
-    'bg-pink-500',
-    'bg-indigo-500',
-    'bg-teal-500',
-  ];
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return colors[Math.abs(hash) % colors.length];
+  const initials =
+    names.length === 1
+      ? names[0].charAt(0)
+      : names[0].charAt(0) + names[names.length - 1].charAt(0);
+  return initials.toUpperCase();
 };
 
 export default function PornstarPage() {
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [debouncedSearch, setDebouncedSearch] = useState<string>('');
-  const queryClient = useQueryClient();
-  const { ref, inView } = useInView();
-
-  const { isOpen, openModal, closeModal } = useModal();
-  const { isOpen: isOpenEdit, openModal: openModalEdit, closeModal: closeModalEdit } = useModal();
-
-  // Explicitly typing editData state to match component props
-  const [editData, setEditData] = useState<{
-    pstar_id: number | null;
-    name: string;
-    social_links: string | Array<{ name: string; link: string }> | null;
-    profile_pic: string | null;
-  }>({
-    pstar_id: null,
-    name: '',
-    social_links: null,
-    profile_pic: null,
-  });
-
-  // Debounce Search
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearch(searchQuery);
-    }, 500);
-    return () => clearTimeout(handler);
-  }, [searchQuery]);
-
-  // Fetch Pornstars Function for Infinite Query
-  const fetchPornstars = async ({ pageParam = 1 }: { pageParam?: number }) => {
-    const response = await axios.get('/pornstars', {
-      params: {
-        page: pageParam,
-        limit: 20,
-        search: debouncedSearch,
-      },
-    });
-
-    let pornstarsData: Pornstar[] = [];
-    let hasMore = false;
-
-    if (response.data.success) {
-      if (response.data.data && Array.isArray(response.data.data)) {
-        pornstarsData = response.data.data;
-        if (response.data.pagination) {
-          hasMore = pageParam < response.data.pagination.total_pages;
-        } else {
-          hasMore = pornstarsData.length === 20;
-        }
-      }
-    } else {
-      throw new Error(response.data.message || 'Failed to fetch');
-    }
-
-    return {
-      data: pornstarsData,
-      nextCursor: hasMore ? pageParam + 1 : undefined,
-      hasMore,
-    };
-  };
-
-  const { data, error, fetchNextPage, hasNextPage, isFetchingNextPage, status, refetch } =
-    useInfiniteQuery({
-      queryKey: ['pornstars', debouncedSearch],
-      queryFn: fetchPornstars,
-      getNextPageParam: (lastPage) => lastPage.nextCursor,
-      initialPageParam: 1,
-    });
-
-  useEffect(() => {
-    if (inView && hasNextPage) {
-      fetchNextPage();
-    }
-  }, [inView, hasNextPage, fetchNextPage]);
-
-  // Delete Mutation
-  const deleteMutation = useMutation({
-    mutationFn: async (pstarId: number) => {
-      return axios.post(`/delete`, {
-        id: pstarId,
-        type: 'pornstar',
-      });
-    },
-    onSuccess: () => {
-      Swal.fire('Deleted!', 'Pornstar has been deleted.', 'success');
-      queryClient.invalidateQueries({ queryKey: ['pornstars'] });
-    },
-    onError: () => {
-      Swal.fire('Error', 'Failed to delete pornstar', 'error');
-    },
-  });
-
-  const handleDeletePornstar = async (pstarId: number) => {
-    Swal.fire({
-      title: 'Are you sure?',
-      text: "You won't be able to revert this!",
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#3085d6',
-      cancelButtonColor: '#d33',
-      confirmButtonText: 'Yes, delete it!',
-    }).then((result) => {
-      if (result.isConfirmed) {
-        deleteMutation.mutate(pstarId);
-      }
-    });
-  };
-
-  // Toggle Active Mutation
-  const toggleMutation = useMutation({
-    mutationFn: async ({ id, isActive }: { id: number; isActive: boolean }) => {
-      return axios.post(`/active-inactive`, {
-        id,
-        type: 'pornstar',
-        action: isActive,
-      });
-    },
-    onMutate: async ({ id, isActive }) => {
-      await queryClient.cancelQueries({ queryKey: ['pornstars', debouncedSearch] });
-      const previousData = queryClient.getQueryData(['pornstars', debouncedSearch]);
-      queryClient.setQueryData(['pornstars', debouncedSearch], (old: any) => {
-        if (!old) return old;
-        return {
-          ...old,
-          pages: old.pages.map((page: any) => ({
-            ...page,
-            data: page.data.map((pornstar: Pornstar) =>
-              pornstar.pstar_id === id ? { ...pornstar, is_active: isActive ? 1 : 0 } : pornstar
-            ),
-          })),
-        };
-      });
-      return { previousData };
-    },
-    onError: (err, newTodo, context: any) => {
-      queryClient.setQueryData(['pornstars', debouncedSearch], context.previousData);
-      Swal.fire({
-        icon: 'error',
-        title: 'Oops...',
-        text: 'Something went wrong!',
-        toast: true,
-        position: 'top-end',
-        showConfirmButton: false,
-        timer: 3000,
-      });
-    },
-  });
-
-  const handleToggle = (pstar_id: number, isActive: boolean) => {
-    toggleMutation.mutate({ id: pstar_id, isActive });
-  };
-
-  // Flatten data for display
-  const pornstars = data?.pages.flatMap((page) => page.data) || [];
+  const {
+    searchQuery,
+    setSearchQuery,
+    items: pornstars,
+    error,
+    status,
+    refetch,
+    hasNextPage,
+    isFetchingNextPage,
+    loadMoreRef,
+    deleteItem,
+    toggleActive,
+  } = useEntityList<Pornstar>({ endpoint: 'pornstars', type: 'pornstar', idKey: 'pstar_id' });
+  // null = closed, {} = add, { pornstar } = edit
+  const [modal, setModal] = useState<{ pornstar?: Pornstar } | null>(null);
 
   return (
     <div className="p-4 md:p-6">
-      {isOpen && (
-        <AddPornstarModal
-          onClose={() => {
-            closeModal();
-            queryClient.invalidateQueries({ queryKey: ['pornstars'] });
-          }}
-        />
-      )}
-      {isOpenEdit && (
-        <EditPornstarModel
-          pstar_id={editData.pstar_id}
-          name={editData.name}
-          social_links={editData.social_links}
-          profile_pic={editData.profile_pic}
-          onClose={() => {
-            closeModalEdit();
-            queryClient.invalidateQueries({ queryKey: ['pornstars'] });
-          }}
-        />
-      )}
+      {modal && <PornstarFormModal pornstar={modal.pornstar} onClose={() => setModal(null)} />}
 
       {/* Page Breadcrumb */}
       <PageBreadcrumb pageTitle="Pornstars" />
@@ -281,7 +112,7 @@ export default function PornstarPage() {
           <Button
             className="flex items-center rounded-lg bg-blue-600 px-4 py-2 text-white shadow-md transition-colors hover:bg-blue-700 hover:shadow-lg"
             size="sm"
-            onClick={openModal}
+            onClick={() => setModal({})}
           >
             <Plus size={18} className="mr-2" />
             Add New Pornstar
@@ -293,7 +124,7 @@ export default function PornstarPage() {
       {status === 'error' && (
         <div className="mb-4 flex items-center rounded border border-red-200 bg-red-50 px-4 py-3 text-red-700">
           <span className="mr-2">⚠️</span>
-          {(error as Error).message}
+          {error?.message}
         </div>
       )}
 
@@ -311,7 +142,7 @@ export default function PornstarPage() {
                 key={`${pornstar.pstar_id}-${index}`}
                 className="group relative flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-xl dark:border-gray-700 dark:bg-gray-800 dark:hover:border-blue-800"
               >
-                {/* Active Status Indicator (Optional visual cue at top) */}
+                {/* Active Status Bar */}
                 <div
                   className={`absolute inset-x-0 top-0 h-1 transition-colors duration-300 ${pornstar.is_active ? 'bg-gradient-to-r from-blue-500 to-indigo-500' : 'bg-gray-200 dark:bg-gray-700'}`}
                 />
@@ -379,10 +210,7 @@ export default function PornstarPage() {
                       </span>
                       <div className="flex items-center gap-1.5 font-bold text-gray-900 dark:text-white">
                         <Eye size={14} className="text-indigo-500" />
-                        {new Intl.NumberFormat('en-US', {
-                          notation: 'compact',
-                          compactDisplay: 'short',
-                        }).format(pornstar.total_views)}
+                        {compactNumber.format(pornstar.total_views)}
                       </div>
                     </div>
                   </div>
@@ -394,15 +222,7 @@ export default function PornstarPage() {
                     <button
                       className="group/btn rounded-lg border border-transparent p-2 text-gray-400 transition-all hover:border-blue-100 hover:bg-white hover:text-blue-600 hover:shadow-sm dark:hover:bg-gray-700 dark:hover:text-blue-400"
                       title="Edit Pornstar"
-                      onClick={() => {
-                        setEditData({
-                          pstar_id: pornstar.pstar_id,
-                          name: pornstar.name,
-                          social_links: pornstar.social_links,
-                          profile_pic: pornstar.profile_pic,
-                        });
-                        openModalEdit();
-                      }}
+                      onClick={() => setModal({ pornstar })}
                     >
                       <Pencil
                         size={18}
@@ -411,22 +231,18 @@ export default function PornstarPage() {
                     </button>
 
                     <button
-                      onClick={() => handleDeletePornstar(pornstar.pstar_id)}
+                      onClick={() => deleteItem(pornstar.pstar_id)}
                       className="group/btn rounded-lg border border-transparent p-2 text-gray-400 transition-all hover:border-red-100 hover:bg-white hover:text-red-500 hover:shadow-sm dark:hover:bg-gray-700 dark:hover:text-red-400"
                       title="Delete Pornstar"
                     >
-                      <Trash2
-                        size={18}
-                        className="transition-transform group-hover/btn:scale-110"
-                      />
+                      <Trash size={18} className="transition-transform group-hover/btn:scale-110" />
                     </button>
                   </div>
 
                   <div className="flex items-center">
                     <ToggleSwitch
-                      label=""
                       checked={pornstar.is_active === 1}
-                      onChange={(checked) => handleToggle(pornstar.pstar_id, checked)}
+                      onChange={(checked) => toggleActive(pornstar.pstar_id, checked)}
                     />
                   </div>
                 </div>
@@ -472,7 +288,7 @@ export default function PornstarPage() {
           )}
 
           {/* Intersection Observer Target */}
-          <div ref={ref} className="col-span-full flex h-10 w-full justify-center p-4">
+          <div ref={loadMoreRef} className="col-span-full flex h-10 w-full justify-center p-4">
             {isFetchingNextPage ? null : hasNextPage ? (
               <span className="text-sm text-gray-400">Scroll for more...</span>
             ) : pornstars.length > 0 ? (
@@ -483,446 +299,181 @@ export default function PornstarPage() {
       )}
     </div>
   );
+}
 
-  function AddPornstarModal({ onClose }: { onClose: () => void }) {
-    const [pornstarName, setPornstarName] = useState('');
-    const [socialLinks, setSocialLinks] = useState<Array<{ name: string; link: string }>>([
-      { name: '', link: '' },
-    ]);
-    const [profilePicUrl, setProfilePicUrl] = useState<string>('');
-    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-    const [isSubmitting, setIsSubmitting] = useState(false);
+function PornstarFormModal({ pornstar, onClose }: { pornstar?: Pornstar; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [name, setName] = useState(pornstar?.name ?? '');
+  const [profilePic, setProfilePic] = useState(pornstar?.profile_pic ?? '');
+  const [socialLinks, setSocialLinks] = useState<SocialLink[]>(() => {
+    try {
+      const raw = pornstar?.social_links;
+      const links = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      return Array.isArray(links) && links.length > 0 ? links : [EMPTY_LINK];
+    } catch {
+      return [EMPTY_LINK];
+    }
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const action = pornstar ? 'update' : 'add';
 
-    const handleProfilePicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const url = e.target.value;
-      setProfilePicUrl(url);
-      setPreviewUrl(url);
-    };
+  const updateSocialLink = (index: number, field: keyof SocialLink, value: string) => {
+    setSocialLinks((links) =>
+      links.map((link, i) => (i === index ? { ...link, [field]: value } : link))
+    );
+  };
 
-    const handleSocialLinkChange = (index: number, field: 'name' | 'link', value: string) => {
-      const updatedLinks = [...socialLinks];
-      updatedLinks[index][field] = value;
-      setSocialLinks(updatedLinks);
-    };
-
-    const addSocialLink = () => {
-      setSocialLinks([...socialLinks, { name: '', link: '' }]);
-    };
-
-    const removeSocialLink = (index: number) => {
-      if (socialLinks.length > 1) {
-        const updatedLinks = [...socialLinks];
-        updatedLinks.splice(index, 1);
-        setSocialLinks(updatedLinks);
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        name,
+        profile_pic: profilePic || null,
+        social_links: socialLinks.filter((link) => link.name.trim() && link.link.trim()),
+      };
+      const response = pornstar
+        ? await axios.post('/edit-pornstar', { pornstar_id: pornstar.pstar_id, ...payload })
+        : await axios.post('/add-pornstar', payload);
+      if (!response.data.success) {
+        throw new Error(response.data.message);
       }
-    };
 
-    const handleSave = async (e: React.FormEvent) => {
-      e.preventDefault();
-      setIsSubmitting(true);
-      try {
-        const validSocialLinks = socialLinks.filter(
-          (link) => link.name.trim() !== '' && link.link.trim() !== ''
-        );
+      queryClient.invalidateQueries({ queryKey: ['pornstars'] });
+      onClose();
+      Swal.fire({
+        title: 'Success',
+        text: `Pornstar ${action === 'add' ? 'added' : 'updated'} successfully!`,
+        icon: 'success',
+        timer: 2000,
+        showConfirmButton: false,
+      });
+    } catch {
+      Swal.fire({ title: 'Error', text: `Failed to ${action} pornstar`, icon: 'error' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
-        const payload = {
-          name: pornstarName,
-          profile_pic: profilePicUrl,
-          social_links: validSocialLinks,
-        };
+  return (
+    <Modal isOpen onClose={onClose} className="max-w-[584px] rounded-2xl p-6">
+      <div className="mb-6 flex items-center justify-between">
+        <h4 className="text-xl font-bold text-gray-900 dark:text-white">
+          {pornstar ? 'Edit Pornstar' : 'New Pornstar'}
+        </h4>
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+        >
+          <span className="sr-only">Close</span>
+          <X className="h-6 w-6" />
+        </button>
+      </div>
 
-        const response = await axios.post('/add-pornstar', payload);
+      <form onSubmit={handleSave} className="space-y-5">
+        <div>
+          <Label>Pornstar Name</Label>
+          <Input
+            type="text"
+            placeholder="e.g. Riley Reid"
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </div>
 
-        if (response.data.success) {
-          onClose();
-          Swal.fire({
-            title: 'Success',
-            text: 'Pornstar added successfully!',
-            icon: 'success',
-            timer: 2000,
-            showConfirmButton: false,
-          });
-        } else {
-          Swal.fire({
-            title: 'Error',
-            text: 'Failed to add pornstar',
-            icon: 'error',
-          });
-        }
-      } catch (error) {
-        Swal.fire({
-          title: 'Error',
-          text: 'Failed to add pornstar',
-          icon: 'error',
-        });
-      } finally {
-        setIsSubmitting(false);
-      }
-    };
+        <div>
+          <Label>Profile Picture URL</Label>
+          <Input
+            type="text"
+            placeholder="https://example.com/images/profile.jpg"
+            value={profilePic}
+            onChange={(e) => setProfilePic(e.target.value)}
+          />
+          {profilePic && (
+            <div className="mt-3">
+              <img
+                key={profilePic}
+                src={profilePic}
+                alt="Preview"
+                className="h-20 w-20 rounded-full border-2 border-gray-100 object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+            </div>
+          )}
+        </div>
 
-    return (
-      <Modal
-        isOpen={true} // Controlled by parent
-        onClose={onClose}
-        className="max-w-[584px] rounded-2xl p-6"
-      >
-        <div className="mb-6 flex items-center justify-between">
-          <h4 className="text-xl font-bold text-gray-900 dark:text-white">New Pornstar</h4>
+        <div>
+          <Label>Social Media Links</Label>
+          <div className="mt-1 space-y-2">
+            {socialLinks.map((link, index) => (
+              <div key={index} className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Platform (e.g. X)"
+                  value={link.name}
+                  onChange={(e) => updateSocialLink(index, 'name', e.target.value)}
+                  className="w-1/3 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                />
+                <input
+                  type="text"
+                  placeholder="URL"
+                  value={link.link}
+                  onChange={(e) => updateSocialLink(index, 'link', e.target.value)}
+                  className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                />
+                <button
+                  type="button"
+                  onClick={() =>
+                    socialLinks.length > 1 &&
+                    setSocialLinks(socialLinks.filter((_, i) => i !== index))
+                  }
+                  className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                >
+                  <Trash size={16} />
+                </button>
+              </div>
+            ))}
+          </div>
           <button
             type="button"
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            onClick={() => setSocialLinks([...socialLinks, EMPTY_LINK])}
+            className="mt-3 flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700"
           >
-            <span className="sr-only">Close</span>
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
+            <Plus size={16} />
+            Add Another Link
           </button>
         </div>
 
-        <form className="" onSubmit={handleSave}>
-          <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
-            <div className="col-span-1 sm:col-span-2">
-              <Label>Pornstar Name</Label>
-              <Input
-                type="text"
-                placeholder="e.g. Riley Reid"
-                required={true}
-                value={pornstarName}
-                onChange={(e: any) => setPornstarName(e.target.value)}
-              />
-            </div>
-
-            <div className="col-span-1 sm:col-span-2">
-              <Label>Profile Picture URL</Label>
-              <Input
-                type="text"
-                placeholder="https://example.com/images/profile.jpg"
-                value={profilePicUrl}
-                onChange={handleProfilePicChange}
-              />
-              {previewUrl && (
-                <div className="mt-3">
-                  <img
-                    src={previewUrl}
-                    alt="Preview"
-                    className="h-20 w-20 rounded-full border-2 border-gray-100 object-cover"
-                    onError={(e) => {
-                      e.currentTarget.onerror = null;
-                      e.currentTarget.style.display = 'none';
-                    }}
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className="col-span-1 sm:col-span-2">
-              <Label>Social Media Links</Label>
-              <div className="mt-1 space-y-2">
-                {socialLinks.map((link, index) => (
-                  <div key={index} className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Platform (e.g. X)"
-                      value={link.name}
-                      onChange={(e) => handleSocialLinkChange(index, 'name', e.target.value)}
-                      className="w-1/3 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                    />
-                    <input
-                      type="text"
-                      placeholder="URL"
-                      value={link.link}
-                      onChange={(e) => handleSocialLinkChange(index, 'link', e.target.value)}
-                      className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeSocialLink(index)}
-                      className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={addSocialLink}
-                className="mt-3 flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700"
-              >
-                <Plus size={16} />
-                Add Another Link
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-8 flex w-full items-center justify-end gap-3">
-            <Button
-              size="sm"
-              variant="outline"
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              type="submit"
-              disabled={isSubmitting}
-              className="min-w-[100px] bg-blue-600 text-white hover:bg-blue-700"
-            >
-              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create Pornstar'}
-            </Button>
-          </div>
-        </form>
-      </Modal>
-    );
-  }
-
-  function EditPornstarModel({
-    pstar_id,
-    name,
-    social_links,
-    profile_pic,
-    onClose,
-  }: {
-    pstar_id: number | null;
-    name: string;
-    social_links: string | Array<{ name: string; link: string }> | null;
-    profile_pic: string | null;
-    onClose: () => void;
-  }) {
-    const [pornstarName, setPornstarName] = useState(name);
-    const [socialLinks, setSocialLinks] = useState<Array<{ name: string; link: string }>>([
-      { name: '', link: '' },
-    ]);
-    const [profilePicUrl, setProfilePicUrl] = useState<string>(profile_pic || '');
-    const [previewUrl, setPreviewUrl] = useState<string | null>(profile_pic || null);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-
-    // Update local state when value changes
-    useEffect(() => {
-      setPornstarName(name);
-      setProfilePicUrl(profile_pic || '');
-      setPreviewUrl(profile_pic || null);
-    }, [name, profile_pic]);
-
-    // Parse social links
-    useEffect(() => {
-      if (social_links) {
-        try {
-          if (Array.isArray(social_links) && social_links.length > 0) {
-            setSocialLinks(social_links);
-          } else if (typeof social_links === 'string') {
-            const parsedLinks = JSON.parse(social_links);
-            if (Array.isArray(parsedLinks) && parsedLinks.length > 0) {
-              setSocialLinks(parsedLinks);
-            } else {
-              setSocialLinks([{ name: '', link: '' }]);
-            }
-          } else {
-            setSocialLinks([{ name: '', link: '' }]);
-          }
-        } catch (error) {
-          setSocialLinks([{ name: '', link: '' }]);
-        }
-      } else {
-        setSocialLinks([{ name: '', link: '' }]);
-      }
-    }, [social_links]);
-
-    const handleProfilePicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const url = e.target.value;
-      setProfilePicUrl(url);
-      setPreviewUrl(url);
-    };
-
-    const handleSocialLinkChange = (index: number, field: 'name' | 'link', value: string) => {
-      const updatedLinks = [...socialLinks];
-      updatedLinks[index][field] = value;
-      setSocialLinks(updatedLinks);
-    };
-
-    const addSocialLink = () => {
-      setSocialLinks([...socialLinks, { name: '', link: '' }]);
-    };
-
-    const removeSocialLink = (index: number) => {
-      if (socialLinks.length > 1) {
-        const updatedLinks = [...socialLinks];
-        updatedLinks.splice(index, 1);
-        setSocialLinks(updatedLinks);
-      }
-    };
-
-    const handleSave = async (e: React.FormEvent) => {
-      e.preventDefault();
-      setIsSubmitting(true);
-      try {
-        const validSocialLinks = socialLinks.filter(
-          (link) => link.name.trim() !== '' && link.link.trim() !== ''
-        );
-
-        const payload = {
-          pornstar_id: pstar_id,
-          name: pornstarName,
-          profile_pic: profilePicUrl === '' ? null : profilePicUrl,
-          social_links: validSocialLinks,
-        };
-
-        const response = await axios.post('/edit-pornstar', payload);
-
-        if (response.data.success) {
-          onClose();
-          Swal.fire({
-            title: 'Success',
-            text: 'Pornstar updated successfully!',
-            icon: 'success',
-            timer: 2000,
-            showConfirmButton: false,
-          });
-        } else {
-          Swal.fire({
-            title: 'Error',
-            text: 'Failed to update pornstar',
-            icon: 'error',
-          });
-        }
-      } catch (error) {
-        Swal.fire({
-          title: 'Error',
-          text: 'Failed to update pornstar',
-          icon: 'error',
-        });
-      } finally {
-        setIsSubmitting(false);
-      }
-    };
-
-    return (
-      <Modal isOpen={true} onClose={onClose} className="max-w-[584px] rounded-2xl p-6">
-        <div className="mb-6 flex items-center justify-between">
-          <h4 className="text-xl font-bold text-gray-900 dark:text-white">Edit Pornstar</h4>
-          <button
+        <div className="mt-8 flex w-full items-center justify-end gap-3">
+          <Button
+            size="sm"
+            variant="outline"
             type="button"
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            disabled={isSubmitting}
           >
-            <span className="sr-only">Close</span>
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            type="submit"
+            disabled={isSubmitting}
+            className="min-w-[100px] bg-blue-600 text-white hover:bg-blue-700"
+          >
+            {isSubmitting ? (
+              <LoaderCircle className="h-4 w-4 animate-spin" />
+            ) : pornstar ? (
+              'Save Changes'
+            ) : (
+              'Create Pornstar'
+            )}
+          </Button>
         </div>
-
-        <form className="" onSubmit={handleSave}>
-          <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
-            <div className="col-span-1 sm:col-span-2">
-              <Label>Pornstar Name</Label>
-              <Input
-                type="text"
-                defaultValue={name}
-                placeholder="Name"
-                required={true}
-                onChange={(e: any) => setPornstarName(e.target.value)}
-              />
-            </div>
-
-            <div className="col-span-1 sm:col-span-2">
-              <Label>Profile Picture URL</Label>
-              <Input
-                type="text"
-                placeholder="https://example.com/images/profile.jpg"
-                defaultValue={profilePicUrl}
-                onChange={handleProfilePicChange}
-              />
-              {previewUrl && (
-                <div className="mt-3">
-                  <img
-                    src={previewUrl}
-                    alt="Preview"
-                    className="h-20 w-20 rounded-full border-2 border-gray-100 object-cover"
-                    onError={(e) => {
-                      e.currentTarget.onerror = null;
-                      e.currentTarget.style.display = 'none';
-                    }}
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className="col-span-1 sm:col-span-2">
-              <Label>Social Media Links</Label>
-              <div className="mt-1 space-y-2">
-                {socialLinks.map((link, index) => (
-                  <div key={index} className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Platform (e.g. X)"
-                      value={link.name}
-                      onChange={(e) => handleSocialLinkChange(index, 'name', e.target.value)}
-                      className="w-1/3 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                    />
-                    <input
-                      type="text"
-                      placeholder="URL"
-                      value={link.link}
-                      onChange={(e) => handleSocialLinkChange(index, 'link', e.target.value)}
-                      className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeSocialLink(index)}
-                      className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={addSocialLink}
-                className="mt-3 flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700"
-              >
-                <Plus size={16} />
-                Add Another Link
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-8 flex w-full items-center justify-end gap-3">
-            <Button
-              size="sm"
-              variant="outline"
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              type="submit"
-              disabled={isSubmitting}
-              className="min-w-[100px] bg-blue-600 text-white hover:bg-blue-700"
-            >
-              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save Changes'}
-            </Button>
-          </div>
-        </form>
-      </Modal>
-    );
-  }
+      </form>
+    </Modal>
+  );
 }

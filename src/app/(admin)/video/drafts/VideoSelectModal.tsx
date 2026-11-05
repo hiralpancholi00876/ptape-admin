@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { Modal } from '@/components/ui/modal';
 import Button from '@/components/ui/button/Button';
 import axios from '@/utils/axios';
@@ -8,12 +8,12 @@ import { timeAgo } from '@/utils/commonFunc';
 import {
   X,
   Check,
-  Loader2,
+  LoaderCircle,
   Camera,
   ChevronLeft,
   ChevronRight,
   Search,
-  AlertCircle,
+  CircleExclamationPoint,
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Swal from 'sweetalert2';
@@ -89,9 +89,13 @@ export function VideoSelectModal({ isOpen, onClose }: VideoSelectModalProps) {
   }, [onClose]);
 
   const toggleSelection = (video: Video) => {
-    const newMap = new Map(selectedVideos);
-    newMap.has(video.link) ? newMap.delete(video.link) : newMap.set(video.link, video);
-    setSelectedVideos(newMap);
+    const next = new Map(selectedVideos);
+    if (next.has(video.link)) {
+      next.delete(video.link);
+    } else {
+      next.set(video.link, video);
+    }
+    setSelectedVideos(next);
   };
 
   const handleSubmit = () => {
@@ -101,7 +105,10 @@ export function VideoSelectModal({ isOpen, onClose }: VideoSelectModalProps) {
 
   const openScreenshot = async (link: string) => {
     try {
-      const res = await axios.post<any>('/fetch-fuckingsession-screenshot', { link });
+      const res = await axios.post<{ success: boolean; data?: { screenshotLink: string | null } }>(
+        '/fetch-fuckingsession-screenshot',
+        { link }
+      );
       if (res.data.success && res.data.data?.screenshotLink) {
         window.open(res.data.data.screenshotLink, '_blank');
       }
@@ -154,7 +161,7 @@ export function VideoSelectModal({ isOpen, onClose }: VideoSelectModalProps) {
           </div>
         ) : isError ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <AlertCircle className="mb-3 h-10 w-10 text-red-500" />
+            <CircleExclamationPoint className="mb-3 h-10 w-10 text-red-500" />
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
               Failed to load videos
             </h3>
@@ -236,7 +243,7 @@ export function VideoSelectModal({ isOpen, onClose }: VideoSelectModalProps) {
 
         {isLoading && videos.length > 0 && (
           <div className="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-black/30">
-            <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+            <LoaderCircle className="h-8 w-8 animate-spin text-blue-600" />
           </div>
         )}
       </div>
@@ -286,7 +293,7 @@ export function VideoSelectModal({ isOpen, onClose }: VideoSelectModalProps) {
           >
             {submitMutation.isPending ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving
+                <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> Saving
               </>
             ) : (
               `Add (${selectedVideos.size})`

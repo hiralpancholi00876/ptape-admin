@@ -1,18 +1,17 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import PageBreadcrumb from '@/components/common/PageBreadCrumb';
 import axios from '@/utils/axios';
-import { Eye, Globe, Film, Search, Plus, Pencil, Trash2, Loader2, RefreshCcw } from 'lucide-react';
+import { Eye, Globe, Search, Plus, Pencil, Trash, LoaderCircle, RefreshCcw, X } from 'lucide-react';
 import ToggleSwitch from '@/components/form/switch/Switch';
 import Label from '@/components/form/Label';
 import Input from '@/components/form/input/InputField';
 import Button from '@/components/ui/button/Button';
 import { Modal } from '@/components/ui/modal';
-import { useModal } from '@/hooks/useModal';
+import { useEntityList } from '@/hooks/useEntityList';
 import Swal from 'sweetalert2';
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useInView } from 'react-intersection-observer';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface Studio {
   studio_id: number;
@@ -24,202 +23,37 @@ interface Studio {
   is_active: number;
 }
 
-interface FetchStudiosResponse {
-  data: Studio[];
-  nextCursor: number | undefined;
-  hasMore: boolean;
-}
+const websiteUrl = (website: string) =>
+  website.startsWith('http') ? website : `https://${website}`;
+
+const websiteHost = (website: string) => {
+  try {
+    return new URL(websiteUrl(website)).hostname.replace('www.', '');
+  } catch {
+    return 'Website';
+  }
+};
 
 export default function StudiosPage() {
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [debouncedSearch, setDebouncedSearch] = useState<string>('');
-  const queryClient = useQueryClient();
-  const { ref, inView } = useInView();
-
-  const { isOpen, openModal, closeModal } = useModal();
-  const { isOpen: isOpenEdit, openModal: openModalEdit, closeModal: closeModalEdit } = useModal();
-  const [editData, setEditData] = useState<{
-    studio_id: number | null;
-    name: string;
-    website: string | null;
-  }>({ studio_id: null, name: '', website: null });
-
-  // Debounce Search
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearch(searchQuery);
-    }, 500);
-    return () => clearTimeout(handler);
-  }, [searchQuery]);
-
-  // Fetch Studios Function for Infinite Query
-  const fetchStudios = async ({ pageParam = 1 }: { pageParam?: number }) => {
-    // NOTE: Adjusted to match assumed API structure.
-    // If API does not support page/limit, customization is needed.
-    const response = await axios.get('/studios', {
-      params: {
-        page: pageParam,
-        limit: 20,
-        search: debouncedSearch,
-      },
-    });
-
-    // Handling both possible API structures:
-    // 1. { success: true, data: [...allData] } // If no pagination support yet
-    // 2. { success: true, data: [...pageData], total_pages: X, current_page: Y } // If pagination supported
-
-    let studiosData: Studio[] = [];
-    let hasMore = false;
-
-    if (response.data.success) {
-      // Check if backend returns paginated structure
-      if (response.data.data && Array.isArray(response.data.data)) {
-        studiosData = response.data.data;
-        // If API returns all data at once (no server pagination), manual slice?
-        // Assuming Backend supports pagination based on user request "api calling pagination wise".
-        // If backend returns total_pages or similar:
-        if (response.data.pagination) {
-          hasMore = pageParam < response.data.pagination.total_pages;
-        } else {
-          // Fallback: if we got full list (limit=20), assume there might be more
-          hasMore = studiosData.length === 20;
-        }
-      }
-    } else {
-      throw new Error(response.data.message || 'Failed to fetch');
-    }
-
-    return {
-      data: studiosData,
-      nextCursor: hasMore ? pageParam + 1 : undefined,
-      hasMore,
-    };
-  };
-
-  const { data, error, fetchNextPage, hasNextPage, isFetchingNextPage, status, refetch } =
-    useInfiniteQuery({
-      queryKey: ['studios', debouncedSearch],
-      queryFn: fetchStudios,
-      getNextPageParam: (lastPage) => lastPage.nextCursor,
-      initialPageParam: 1,
-    });
-
-  useEffect(() => {
-    if (inView && hasNextPage) {
-      fetchNextPage();
-    }
-  }, [inView, hasNextPage, fetchNextPage]);
-
-  // Delete Mutation
-  const deleteMutation = useMutation({
-    mutationFn: async (studioId: number) => {
-      return axios.post(`/delete`, {
-        id: studioId,
-        type: 'studio',
-      });
-    },
-    onSuccess: () => {
-      Swal.fire('Deleted!', 'Studio has been deleted.', 'success');
-      queryClient.invalidateQueries({ queryKey: ['studios'] });
-    },
-    onError: () => {
-      Swal.fire('Error', 'Failed to delete studio', 'error');
-    },
-  });
-
-  const handleDeleteStudio = async (studioId: number) => {
-    Swal.fire({
-      title: 'Are you sure?',
-      text: "You won't be able to revert this!",
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#3085d6',
-      cancelButtonColor: '#d33',
-      confirmButtonText: 'Yes, delete it!',
-    }).then((result) => {
-      if (result.isConfirmed) {
-        deleteMutation.mutate(studioId);
-      }
-    });
-  };
-
-  // Toggle Active Mutation
-  const toggleMutation = useMutation({
-    mutationFn: async ({ id, isActive }: { id: number; isActive: boolean }) => {
-      return axios.post(`/active-inactive`, {
-        id,
-        type: 'studio',
-        action: isActive,
-      });
-    },
-    onMutate: async ({ id, isActive }) => {
-      // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
-      await queryClient.cancelQueries({ queryKey: ['studios', debouncedSearch] });
-
-      // Snapshot the previous value
-      const previousData = queryClient.getQueryData(['studios', debouncedSearch]);
-
-      // Optimistically update to the new value
-      queryClient.setQueryData(['studios', debouncedSearch], (old: any) => {
-        if (!old) return old;
-        return {
-          ...old,
-          pages: old.pages.map((page: any) => ({
-            ...page,
-            data: page.data.map((studio: Studio) =>
-              studio.studio_id === id ? { ...studio, is_active: isActive ? 1 : 0 } : studio
-            ),
-          })),
-        };
-      });
-
-      // Return a context object with the snapshotted value
-      return { previousData };
-    },
-    onError: (err, newTodo, context: any) => {
-      queryClient.setQueryData(['studios', debouncedSearch], context.previousData);
-      Swal.fire({
-        icon: 'error',
-        title: 'Oops...',
-        text: 'Something went wrong!',
-        toast: true,
-        position: 'top-end',
-        showConfirmButton: false,
-        timer: 3000,
-      });
-    },
-    onSuccess: () => {
-      // Optional: invalidate if you want strictly fresh data
-      // queryClient.invalidateQueries({ queryKey: ['studios'] });
-    },
-  });
-
-  const handleToggle = (studio_id: number, isActive: boolean) => {
-    toggleMutation.mutate({ id: studio_id, isActive });
-  };
-
-  // Flatten data for display
-  const studios = data?.pages.flatMap((page) => page.data) || [];
+  const {
+    searchQuery,
+    setSearchQuery,
+    items: studios,
+    error,
+    status,
+    refetch,
+    hasNextPage,
+    isFetchingNextPage,
+    loadMoreRef,
+    deleteItem,
+    toggleActive,
+  } = useEntityList<Studio>({ endpoint: 'studios', type: 'studio', idKey: 'studio_id' });
+  // null = closed, {} = add, { studio } = edit
+  const [modal, setModal] = useState<{ studio?: Studio } | null>(null);
 
   return (
     <div className="p-4 md:p-6">
-      {isOpen && (
-        <AddStudioModal
-          onClose={() => {
-            closeModal();
-            queryClient.invalidateQueries({ queryKey: ['studios'] });
-          }}
-        />
-      )}
-      {isOpenEdit && (
-        <EditStudioModel
-          {...editData}
-          onClose={() => {
-            closeModalEdit();
-            queryClient.invalidateQueries({ queryKey: ['studios'] });
-          }}
-        />
-      )}
+      {modal && <StudioFormModal studio={modal.studio} onClose={() => setModal(null)} />}
 
       {/* Page Breadcrumb */}
       <PageBreadcrumb pageTitle="Studios" />
@@ -257,7 +91,7 @@ export default function StudiosPage() {
           <Button
             className="flex items-center rounded-lg bg-blue-600 px-4 py-2 text-white shadow-md transition-colors hover:bg-blue-700 hover:shadow-lg"
             size="sm"
-            onClick={openModal}
+            onClick={() => setModal({})}
           >
             <Plus size={18} className="mr-2" />
             Add New Studio
@@ -269,7 +103,7 @@ export default function StudiosPage() {
       {status === 'error' && (
         <div className="mb-4 flex items-center rounded border border-red-200 bg-red-50 px-4 py-3 text-red-700">
           <span className="mr-2">⚠️</span>
-          {(error as Error).message}
+          {error?.message}
         </div>
       )}
 
@@ -283,7 +117,6 @@ export default function StudiosPage() {
         <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-5">
           {studios.length > 0 ? (
             studios.map((studio, index) => (
-              // Use index as key fallback if duplicate IDs occur during pagination transitions
               <div
                 key={`${studio.studio_id}-${index}`}
                 className="group overflow-hidden rounded-xl border border-gray-100 bg-white text-center shadow-sm transition-all duration-300 hover:border-blue-100 hover:shadow-md dark:border-gray-700 dark:bg-gray-800"
@@ -308,26 +141,13 @@ export default function StudiosPage() {
                   <div className="mb-4 flex h-6 items-center text-sm text-gray-500 dark:text-gray-400">
                     {studio.website ? (
                       <a
-                        href={
-                          studio.website.startsWith('http')
-                            ? studio.website
-                            : `https://${studio.website}`
-                        }
+                        href={websiteUrl(studio.website)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex max-w-[150px] items-center gap-1 truncate text-blue-500 hover:underline"
                       >
                         <Globe size={12} />
-                        {(() => {
-                          try {
-                            const url = studio.website.startsWith('http')
-                              ? studio.website
-                              : `https://${studio.website}`;
-                            return new URL(url).hostname.replace('www.', '');
-                          } catch {
-                            return 'Website';
-                          }
-                        })()}
+                        {websiteHost(studio.website)}
                       </a>
                     ) : (
                       <span className="flex items-center gap-1 text-gray-300 dark:text-gray-600">
@@ -341,30 +161,22 @@ export default function StudiosPage() {
                       <button
                         className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-600 dark:text-gray-400 dark:hover:bg-gray-700"
                         title="Edit"
-                        onClick={() => {
-                          setEditData({
-                            studio_id: studio.studio_id,
-                            name: studio.name,
-                            website: studio.website,
-                          });
-                          openModalEdit();
-                        }}
+                        onClick={() => setModal({ studio })}
                       >
                         <Pencil size={16} />
                       </button>
 
                       <button
-                        onClick={() => handleDeleteStudio(studio.studio_id)}
+                        onClick={() => deleteItem(studio.studio_id)}
                         className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-500 dark:text-gray-400 dark:hover:bg-gray-700"
                         title="Delete"
                       >
-                        <Trash2 size={16} />
+                        <Trash size={16} />
                       </button>
                     </div>
                     <ToggleSwitch
-                      label=""
                       checked={studio.is_active === 1}
-                      onChange={(checked) => handleToggle(studio.studio_id, checked)}
+                      onChange={(checked) => toggleActive(studio.studio_id, checked)}
                     />
                   </div>
                 </div>
@@ -410,7 +222,7 @@ export default function StudiosPage() {
           )}
 
           {/* Intersection Observer Target */}
-          <div ref={ref} className="col-span-full flex h-10 w-full justify-center p-4">
+          <div ref={loadMoreRef} className="col-span-full flex h-10 w-full justify-center p-4">
             {isFetchingNextPage ? null : hasNextPage ? (
               <span className="text-sm text-gray-400">Scroll for more...</span>
             ) : studios.length > 0 ? (
@@ -421,250 +233,111 @@ export default function StudiosPage() {
       )}
     </div>
   );
+}
 
-  function AddStudioModal({ onClose }: { onClose: () => void }) {
-    const [studioName, setStudioName] = useState('');
-    const [websiteUrl, setWebsiteUrl] = useState<string>('');
-    const [isSubmitting, setIsSubmitting] = useState(false);
+function StudioFormModal({ studio, onClose }: { studio?: Studio; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [name, setName] = useState(studio?.name ?? '');
+  const [website, setWebsite] = useState(studio?.website ?? '');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const action = studio ? 'update' : 'add';
 
-    const handleSave = async (e: React.FormEvent) => {
-      e.preventDefault();
-      setIsSubmitting(true);
-      try {
-        const response = await axios.post('/add-studio', {
-          name: studioName,
-          website: websiteUrl === '' ? null : websiteUrl,
-        });
-
-        if (response.data.success) {
-          setStudioName('');
-          setWebsiteUrl('');
-          onClose();
-          Swal.fire({
-            title: 'Success',
-            text: 'Studio added successfully!',
-            icon: 'success',
-            timer: 2000,
-            showConfirmButton: false,
-          });
-        } else {
-          Swal.fire({
-            title: 'Error',
-            text: 'Failed to add studio',
-            icon: 'error',
-          });
-        }
-      } catch (error) {
-        Swal.fire({
-          title: 'Error',
-          text: 'Failed to add studio',
-          icon: 'error',
-        });
-      } finally {
-        setIsSubmitting(false);
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const payload = { name, website: website || null };
+      const response = studio
+        ? await axios.post('/edit-studio', { studio_id: studio.studio_id, ...payload })
+        : await axios.post('/add-studio', payload);
+      if (!response.data.success) {
+        throw new Error(response.data.message);
       }
-    };
 
-    return (
-      <Modal
-        isOpen={true} // Controlled by parent
-        onClose={onClose}
-        className="max-w-[480px] rounded-2xl p-6"
-      >
-        <form className="" onSubmit={handleSave}>
-          <div className="mb-6 flex items-center justify-between">
-            <h4 className="text-xl font-bold text-gray-900 dark:text-white">New Studio</h4>
-            <button
-              type="button"
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            >
-              <span className="sr-only">Close</span>
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
+      queryClient.invalidateQueries({ queryKey: ['studios'] });
+      onClose();
+      Swal.fire({
+        title: 'Success',
+        text: `Studio ${action === 'add' ? 'added' : 'updated'} successfully!`,
+        icon: 'success',
+        timer: 2000,
+        showConfirmButton: false,
+      });
+    } catch {
+      Swal.fire({ title: 'Error', text: `Failed to ${action} studio`, icon: 'error' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal isOpen onClose={onClose} className="max-w-[480px] rounded-2xl p-6">
+      <form onSubmit={handleSave}>
+        <div className="mb-6 flex items-center justify-between">
+          <h4 className="text-xl font-bold text-gray-900 dark:text-white">
+            {studio ? 'Edit Studio' : 'New Studio'}
+          </h4>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+          >
+            <span className="sr-only">Close</span>
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <Label>Studio Name</Label>
+            <Input
+              type="text"
+              placeholder="e.g. Brazzers"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
           </div>
 
-          <div className="space-y-4">
-            <div>
-              <Label>Studio Name</Label>
-              <Input
-                type="text"
-                placeholder="e.g. Brazzers"
-                required={true}
-                value={studioName}
-                onChange={(e) => setStudioName(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <Label>
-                Website URL{' '}
-                <span className="ml-1 text-xs font-normal text-gray-400">(Optional)</span>
-              </Label>
-              <Input
-                type="text"
-                placeholder="https://example.com"
-                value={websiteUrl}
-                onChange={(e) => setWebsiteUrl(e.target.value)}
-              />
-            </div>
+          <div>
+            <Label>
+              Website URL <span className="ml-1 text-xs font-normal text-gray-400">(Optional)</span>
+            </Label>
+            <Input
+              type="text"
+              placeholder="https://example.com"
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)}
+            />
           </div>
+        </div>
 
-          <div className="mt-8 flex w-full items-center justify-end gap-3">
-            <Button
-              size="sm"
-              variant="outline"
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              type="submit"
-              disabled={isSubmitting}
-              className="min-w-[100px] bg-blue-600 text-white hover:bg-blue-700"
-            >
-              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create Studio'}
-            </Button>
-          </div>
-        </form>
-      </Modal>
-    );
-  }
-
-  function EditStudioModel({
-    studio_id,
-    name,
-    website,
-    onClose,
-  }: {
-    studio_id: number | null;
-    name: string;
-    website: string | null;
-    onClose: () => void;
-  }) {
-    const [studioName, setStudioName] = useState(name);
-    const [websiteUrl, setWebsiteUrl] = useState<string>(website || '');
-    const [isSubmitting, setIsSubmitting] = useState(false);
-
-    // Update local state when value changes (if modal reopens with different data)
-    useEffect(() => {
-      setStudioName(name);
-      setWebsiteUrl(website || '');
-    }, [name, website]);
-
-    const handleSave = async (e: React.FormEvent) => {
-      e.preventDefault();
-      setIsSubmitting(true);
-      try {
-        const response = await axios.post('/edit-studio', {
-          studio_id: studio_id,
-          name: studioName,
-          website: websiteUrl === '' ? null : websiteUrl, // Handling empty string as null
-        });
-
-        if (response.data.success) {
-          onClose();
-          Swal.fire({
-            title: 'Success',
-            text: 'Studio updated successfully!',
-            icon: 'success',
-            timer: 2000,
-            showConfirmButton: false,
-          });
-        } else {
-          Swal.fire({
-            title: 'Error',
-            text: 'Failed to update studio',
-            icon: 'error',
-          });
-        }
-      } catch (error) {
-        Swal.fire({
-          title: 'Error',
-          text: 'Failed to update studio',
-          icon: 'error',
-        });
-      } finally {
-        setIsSubmitting(false);
-      }
-    };
-
-    return (
-      <Modal isOpen={true} onClose={onClose} className="max-w-[480px] rounded-2xl p-6">
-        <form className="" onSubmit={handleSave}>
-          <div className="mb-6 flex items-center justify-between">
-            <h4 className="text-xl font-bold text-gray-900 dark:text-white">Edit Studio</h4>
-            <button
-              type="button"
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            >
-              <span className="sr-only">Close</span>
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <Label>Studio Name</Label>
-              <Input
-                type="text"
-                defaultValue={name}
-                placeholder="e.g. Brazzers"
-                required={true}
-                onChange={(e) => setStudioName(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <Label>Website URL</Label>
-              <Input
-                type="text"
-                defaultValue={website || ''}
-                placeholder="https://example.com"
-                onChange={(e) => setWebsiteUrl(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="mt-8 flex w-full items-center justify-end gap-3">
-            <Button
-              size="sm"
-              variant="outline"
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              type="submit"
-              disabled={isSubmitting}
-              className="min-w-[100px] bg-blue-600 text-white hover:bg-blue-700"
-            >
-              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save Changes'}
-            </Button>
-          </div>
-        </form>
-      </Modal>
-    );
-  }
+        <div className="mt-8 flex w-full items-center justify-end gap-3">
+          <Button
+            size="sm"
+            variant="outline"
+            type="button"
+            onClick={onClose}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            type="submit"
+            disabled={isSubmitting}
+            className="min-w-[100px] bg-blue-600 text-white hover:bg-blue-700"
+          >
+            {isSubmitting ? (
+              <LoaderCircle className="h-4 w-4 animate-spin" />
+            ) : studio ? (
+              'Save Changes'
+            ) : (
+              'Create Studio'
+            )}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
 }

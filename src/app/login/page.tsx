@@ -2,8 +2,9 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { isAxiosError } from 'axios';
 import axios from '@/utils/axios';
-import { Eye, EyeOff, Lock, Mail, Loader2, LayoutDashboard } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail, LoaderCircle } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,12 +16,6 @@ export default function LoginPage() {
   const [attempts, setAttempts] = useState(0);
   const [isLocked, setIsLocked] = useState(false);
 
-  // Basic SQL Injection patterns to check against (Client-side defense depth)
-  const containsSQLInjection = (input: string) => {
-    const sqlPattern = /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|UNION|ALTER)\b)|(')|(--)|(#)/i;
-    return sqlPattern.test(input);
-  };
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -31,21 +26,13 @@ export default function LoginPage() {
 
     setError(null);
 
-    // Client-side Input Validation & Sanitization
-    const sanitizedEmail = email.trim();
-
-    if (!sanitizedEmail || !password) {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !password) {
       setError('Please fill in all fields.');
       return;
     }
 
-    // Basic SQLi Prevention Check
-    if (containsSQLInjection(sanitizedEmail) || containsSQLInjection(password)) {
-      setError('Invalid characters detected in input.');
-      return;
-    }
-
-    // Rate Limiting Check (Client-side)
+    // Slow down repeated guessing in this tab; the server is the real gatekeeper.
     if (attempts >= 5) {
       setIsLocked(true);
       setError('Too many failed attempts. Please wait 30 seconds.');
@@ -60,33 +47,26 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // API call to login
-      const response = await axios.post('/login', {
-        email: sanitizedEmail,
-        password,
-      });
+      const response = await axios.post('/login', { email: trimmedEmail, password });
 
       if (response.data.success) {
         const { token } = response.data.data;
-
-        // Store token in LocalStorage for axios interceptor
+        // localStorage feeds the axios auth header; the cookie lets middleware guard routes.
         localStorage.setItem('token', token);
-
-        // Store token in Cookie for Middleware
-        // Added 'Secure' flag for HTTPS protection
         document.cookie = `token=${token}; path=/; max-age=86400; SameSite=Strict; Secure`;
-
-        // Redirect to dashboard
         router.push('/');
         router.refresh();
       } else {
         setAttempts((prev) => prev + 1);
         setError(response.data.message || 'Login failed. Please check your credentials.');
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('Login error:', err);
       setAttempts((prev) => prev + 1);
-      setError(err.response?.data?.message || 'Something went wrong. Please try again.');
+      setError(
+        (isAxiosError(err) && err.response?.data?.message) ||
+          'Something went wrong. Please try again.'
+      );
     } finally {
       setLoading(false);
     }
@@ -97,7 +77,6 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="rounded-2xl border-gray-100 bg-white p-8 sm:border sm:shadow-xl dark:border-gray-700 dark:bg-gray-800">
           <form onSubmit={handleLogin} className="space-y-6">
-            {/* Error Alert */}
             {error && (
               <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
                 <svg
@@ -170,7 +149,7 @@ export default function LoginPage() {
             >
               {loading ? (
                 <>
-                  <Loader2 className="mr-2 -ml-1 h-5 w-5 animate-spin" />
+                  <LoaderCircle className="mr-2 -ml-1 h-5 w-5 animate-spin" />
                   Signing in...
                 </>
               ) : (

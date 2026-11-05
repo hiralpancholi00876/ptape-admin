@@ -2,7 +2,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useSidebar } from '../context/SidebarContext';
+import { useSidebar } from '@/context/SidebarContext';
 import { Video, Camera, Star, SquareStack } from 'lucide-react';
 
 type NavItem = {
@@ -22,12 +22,10 @@ const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, toggleMobileSidebar } = useSidebar();
   const pathname = usePathname();
 
-  const isActive = (path: string) => pathname === path;
   const showLabels = isExpanded || isMobileOpen;
 
   return (
     <>
-      {/* Mobile Overlay */}
       {isMobileOpen && (
         <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={toggleMobileSidebar} />
       )}
@@ -35,7 +33,6 @@ const AppSidebar: React.FC = () => {
       <aside
         className={`fixed top-16 left-0 z-50 h-[calc(100vh-64px)] border-r border-gray-200 bg-white transition-all duration-300 ease-in-out lg:top-0 lg:h-screen dark:border-gray-800 dark:bg-gray-900 ${showLabels ? 'w-64' : 'w-20'} ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
       >
-        {/* Logo - Desktop only */}
         <div className="hidden h-16 items-center border-b border-gray-200 px-4 lg:flex dark:border-gray-800">
           <Link href="/" className="flex items-center gap-3">
             <div className="bg-brand-600 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg">
@@ -47,10 +44,9 @@ const AppSidebar: React.FC = () => {
           </Link>
         </div>
 
-        {/* Navigation */}
         <nav className="space-y-1 p-3">
           {navItems.map((item) => {
-            const active = isActive(item.path);
+            const active = pathname === item.path;
             return (
               <Link
                 key={item.name}

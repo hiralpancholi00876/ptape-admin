@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { use, useState, useEffect } from 'react';
 import axios from '@/utils/axios';
 import { useRouter } from 'next/navigation';
 import {
@@ -12,52 +12,104 @@ import {
   Server,
   Tags,
   Star,
-  CheckCircle,
-  XCircle,
+  CircleCheckBig,
+  CircleX,
   Calendar,
   ArrowLeft,
   MonitorPlay,
-  Edit3,
+  PenLine,
   ExternalLink,
 } from 'lucide-react';
 import { formatDuration, convertNumberToSuffix, timeAgo } from '@/utils/commonFunc';
 
+interface VideoSource {
+  id: number;
+  url: string;
+  quality: string | null;
+  file_size: number | null;
+  file_type: string | null;
+  // Optional extras the UI shows when the API provides them.
+  is_active?: number;
+  server_name?: string;
+}
+
+interface VideoDetails {
+  video_id: number;
+  title: string;
+  description: string | null;
+  upload_date: string;
+  duration: number;
+  thumbnail: string;
+  slug: string;
+  is_active: number;
+  views: number;
+  external_id: string | null;
+  studios: string[];
+  pornstars: string[];
+  categories: string[];
+  videoSources: VideoSource[];
+}
+
+const TAG_PANELS = [
+  {
+    key: 'categories',
+    title: 'Categories',
+    icon: <Tags className="h-4 w-4 text-indigo-500" />,
+    tagClass: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
+    emptyText: 'No categories',
+  },
+  {
+    key: 'pornstars',
+    title: 'Cast',
+    icon: <Star className="h-4 w-4 text-amber-500" />,
+    tagClass: 'bg-amber-50 text-amber-900 dark:bg-amber-900/20 dark:text-amber-300',
+    emptyText: 'No cast listed',
+  },
+  {
+    key: 'studios',
+    title: 'Studios',
+    icon: <Folder className="h-4 w-4 text-emerald-500" />,
+    tagClass: 'bg-emerald-50 text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300',
+    emptyText: 'No studio listed',
+  },
+] as const;
+
 export default function ViewVideoPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug: routeSlug } = use(params);
   const router = useRouter();
-  const [videoDetails, setVideoDetails] = useState<any>({});
+  const [videoDetails, setVideoDetails] = useState<VideoDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [activeSource, setActiveSource] = useState<any>(null);
+  const [activeSource, setActiveSource] = useState<VideoSource | null>(null);
 
   useEffect(() => {
-    params.then(({ slug }) => {
-      axios
-        .get(`/getvideo?slug=${slug}`)
-        .then((res) => {
-          if (res.data.success) {
-            setVideoDetails(res.data.data);
-            const sources = res.data.data.videoSources || [];
-            if (sources.length) {
-              setActiveSource(sources.find((s: any) => s.is_active) || sources[0]);
-            }
-          } else {
-            router.push('/video/list');
-          }
-        })
-        .catch(() => router.push('/video/list'))
-        .finally(() => setLoading(false));
-    });
-  }, [params, router]);
+    axios
+      .get<{ success: boolean; data: VideoDetails }>('/getvideo', { params: { slug: routeSlug } })
+      .then((res) => {
+        if (!res.data.success) {
+          router.push('/video/list');
+          return;
+        }
+        setVideoDetails(res.data.data);
+        const sources = res.data.data.videoSources;
+        if (sources.length) {
+          setActiveSource(sources.find((source) => source.is_active) || sources[0]);
+        }
+      })
+      .catch(() => router.push('/video/list'))
+      .finally(() => setLoading(false));
+  }, [routeSlug, router]);
 
-  const handlePlay = (source?: any) => {
+  const handlePlay = (source?: VideoSource) => {
     if (source) setActiveSource(source);
-    else if (!activeSource && videoDetails.videoSources?.length) {
+    else if (!activeSource && videoDetails?.videoSources.length) {
       setActiveSource(videoDetails.videoSources[0]);
     }
     setIsPlaying(true);
   };
 
-  if (loading) {
+  // Also covers the moment between a failed load and the redirect back to the list.
+  if (loading || !videoDetails) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center">
         <div className="relative">
@@ -79,10 +131,7 @@ export default function ViewVideoPage({ params }: { params: Promise<{ slug: stri
     views,
     description,
     duration,
-    videoSources = [],
-    categories = [],
-    pornstars = [],
-    studios = [],
+    videoSources,
     external_id,
   } = videoDetails;
 
@@ -113,7 +162,7 @@ export default function ViewVideoPage({ params }: { params: Promise<{ slug: stri
               onClick={() => router.push(`/video/edit/${slug}`)}
               className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700"
             >
-              <Edit3 className="h-4 w-4" />
+              <PenLine className="h-4 w-4" />
               <span className="hidden sm:inline">Edit</span>
             </button>
           </div>
@@ -171,9 +220,9 @@ export default function ViewVideoPage({ params }: { params: Promise<{ slug: stri
                   className={`flex items-center gap-1 rounded-full px-2 py-1 text-xs font-bold ${is_active ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}
                 >
                   {is_active ? (
-                    <CheckCircle className="h-3 w-3" />
+                    <CircleCheckBig className="h-3 w-3" />
                   ) : (
-                    <XCircle className="h-3 w-3" />
+                    <CircleX className="h-3 w-3" />
                   )}
                   {is_active ? 'Active' : 'Inactive'}
                 </span>
@@ -208,7 +257,7 @@ export default function ViewVideoPage({ params }: { params: Promise<{ slug: stri
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {videoSources.length ? (
-                  videoSources.map((source: any, i: number) => (
+                  videoSources.map((source, i) => (
                     <div
                       key={i}
                       className={`rounded-xl border bg-white p-4 shadow-sm dark:bg-gray-800 ${activeSource?.id === source.id && isPlaying ? 'border-blue-500 ring-1 ring-blue-500' : 'border-gray-200 dark:border-gray-700'}`}
@@ -270,68 +319,30 @@ export default function ViewVideoPage({ params }: { params: Promise<{ slug: stri
 
           {/* Right Sidebar */}
           <div className="space-y-4">
-            {/* Categories */}
-            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-              <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-white">
-                <Tags className="h-4 w-4 text-indigo-500" /> Categories
-              </h3>
-              <div className="flex flex-wrap gap-1.5">
-                {categories.length ? (
-                  categories.map((cat: string, i: number) => (
-                    <span
-                      key={i}
-                      className="rounded bg-gray-100 px-2 py-1 text-xs text-gray-700 dark:bg-gray-700 dark:text-gray-300"
-                    >
-                      {cat}
-                    </span>
-                  ))
-                ) : (
-                  <span className="text-xs text-gray-500 italic">No categories</span>
-                )}
-              </div>
-            </div>
-
-            {/* Cast */}
-            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-              <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-white">
-                <Star className="h-4 w-4 text-amber-500" /> Cast
-              </h3>
-              <div className="flex flex-wrap gap-1.5">
-                {pornstars.length ? (
-                  pornstars.map((star: string, i: number) => (
-                    <span
-                      key={i}
-                      className="rounded bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:bg-amber-900/20 dark:text-amber-300"
-                    >
-                      {star}
-                    </span>
-                  ))
-                ) : (
-                  <span className="text-xs text-gray-500 italic">No cast listed</span>
-                )}
-              </div>
-            </div>
-
-            {/* Studios */}
-            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-              <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-white">
-                <Folder className="h-4 w-4 text-emerald-500" /> Studios
-              </h3>
-              <div className="flex flex-wrap gap-1.5">
-                {studios.length ? (
-                  studios.map((studio: string, i: number) => (
-                    <span
-                      key={i}
-                      className="rounded bg-emerald-50 px-2 py-1 text-xs text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300"
-                    >
-                      {studio}
-                    </span>
-                  ))
-                ) : (
-                  <span className="text-xs text-gray-500 italic">No studio listed</span>
-                )}
-              </div>
-            </div>
+            {TAG_PANELS.map((panel) => {
+              const tags = videoDetails[panel.key];
+              return (
+                <div
+                  key={panel.key}
+                  className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800"
+                >
+                  <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-white">
+                    {panel.icon} {panel.title}
+                  </h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {tags.length ? (
+                      tags.map((tag, i) => (
+                        <span key={i} className={`rounded px-2 py-1 text-xs ${panel.tagClass}`}>
+                          {tag}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-gray-500 italic">{panel.emptyText}</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
 
             {/* Technical */}
             <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900">
