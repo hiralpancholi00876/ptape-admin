@@ -26,6 +26,19 @@ export interface VideoListPage {
   }
 }
 
+// How far one stage of POST /publish-videos got. Redis and Cloudflare run only after the database commit,
+// and a stage that failed leaves the ones after it 'skipped'.
+interface PublishStage {
+  status: 'ok' | 'failed' | 'skipped'
+  error?: string
+}
+
+export interface PublishVideosResult {
+  database: PublishStage & { published?: number }
+  redis: PublishStage & { deleted?: number }
+  cloudflare: PublishStage
+}
+
 // A tbl_video_urls row as returned by GET /getvideo.
 export interface VideoSource {
   id?: number

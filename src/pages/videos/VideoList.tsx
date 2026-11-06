@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Clock, Eye, EyeOff, Film, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Clock, CloudUpload, Eye, EyeOff, Film, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
-import type { VideoListItem, VideoListPage } from '../../types'
+import type { PublishVideosResult, VideoListItem, VideoListPage } from '../../types'
 import { api, type ApiResponse } from '../../lib/api'
 import { compactNumber, formatDuration, formatNumber, timeAgo } from '../../lib/format'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
@@ -46,6 +46,41 @@ interface VideoPage {
 const isTyping = (target: EventTarget | null) =>
   target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))
 
+// Plain-language account of what each stage of a publish did, for the toast.
+function describePublish({ database, redis, cloudflare }: PublishVideosResult) {
+  if (database.status !== 'ok') {
+    const reason = database.error ? `: ${database.error}` : ''
+    return { ok: false, text: `Publishing failed${reason}. Check the list, then try again.` }
+  }
+
+  const published = database.published ?? 0
+  const headline =
+    published > 0
+      ? `Published ${formatNumber(published)} ${published === 1 ? 'video' : 'videos'}`
+      : 'No unpublished videos to publish'
+  const redisText =
+    redis.status === 'ok'
+      ? `Redis cache cleared (${formatNumber(redis.deleted ?? 0)} ${redis.deleted === 1 ? 'key' : 'keys'})`
+      : redis.status === 'failed'
+        ? `Redis failed (${redis.error})`
+        : 'Redis skipped'
+  const cloudflareText =
+    cloudflare.status === 'ok'
+      ? 'Cloudflare cache purged'
+      : cloudflare.status === 'failed'
+        ? `Cloudflare failed (${cloudflare.error})`
+        : 'Cloudflare skipped'
+
+  if (redis.status === 'ok' && cloudflare.status === 'ok') {
+    return { ok: true, text: `${headline}. ${redisText}. ${cloudflareText}.` }
+  }
+  const outcome = published > 0 ? `${headline} successfully, but` : `${headline}, and`
+  return {
+    ok: false,
+    text: `${outcome} clearing the website cache failed. ${redisText}. ${cloudflareText}. Click Publish again to retry the cache clearing.`,
+  }
+}
+
 export function VideoList() {
   const queryClient = useQueryClient()
   const location = useLocation()
@@ -59,6 +94,7 @@ export function VideoList() {
   const sort = SORT_OPTIONS.some((o) => o.value === sortParam) ? sortParam! : 'newest'
   const debouncedQ = useDebouncedValue(q, 400)
   const [selected, setSelected] = useState<number[]>([])
+  const [publishing, setPublishing] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
   const queryKey = ['videos', page, debouncedQ, status, sort]
 
@@ -198,6 +234,39 @@ export function VideoList() {
     }
   }
 
+  // Publishes every hidden video across all pages, then clears the website's Redis and Cloudflare caches.
+  const publishAll = async () => {
+    setPublishing(true)
+    try {
+      // The cache stages run after the database commit, so allow longer than the default 30s (the server stops at 50s).
+      const { data } = await api.post<ApiResponse<PublishVideosResult>>('/publish-videos', undefined, {
+        timeout: 45000,
+      })
+      if (!data.data?.database) throw new Error('Unexpected response')
+      const { ok, text } = describePublish(data.data)
+      if (ok) toast.success(text, { duration: 6000 })
+      else toast.error(text, { duration: 12000 })
+    } catch {
+      toast.error('Couldn’t confirm the publish. Check the list, then try again.')
+    } finally {
+      setPublishing(false)
+      // Refetch even after a failure: videos may have been published before a cache stage failed.
+      queryClient.invalidateQueries({ queryKey: ['videos'] })
+    }
+  }
+
+  const confirmPublishAll = () =>
+    confirm({
+      title: 'Publish All Hidden Videos?',
+      message:
+        'Every hidden video, on all pages, goes live now. Each upload date is replaced with a backdated time ' +
+        '(newest first, 1–5 minutes apart) and the original dates can’t be restored. The website cache ' +
+        '(Redis and Cloudflare) is then cleared. If nothing is hidden, only the cache is cleared.',
+      confirmLabel: 'Publish Videos',
+      tone: 'primary',
+      onConfirm: publishAll,
+    })
+
   return (
     <div className="space-y-5 pb-24">
       <div className="flex flex-col gap-3 rounded-2xl border border-surface-700 bg-surface-850 p-3 lg:flex-row lg:items-center">
@@ -223,6 +292,15 @@ export function VideoList() {
             options={SORT_OPTIONS}
             className="w-40"
           />
+          <Button
+            variant="secondary"
+            onClick={confirmPublishAll}
+            loading={publishing}
+            leftIcon={<CloudUpload className="size-4" />}
+            title="Publish every hidden video and clear the website cache"
+          >
+            Publish
+          </Button>
           <ButtonLink to="/video/add" leftIcon={<Plus className="size-4" />}>
             Add Video
           </ButtonLink>
