@@ -11,6 +11,7 @@ import { confirm } from '../../stores/confirmStore'
 import { useDraftsStore } from '../../stores/draftsStore'
 import { DraftCard } from '../../components/drafts/DraftCard'
 import { PublishDraftDrawer } from '../../components/drafts/PublishDraftDrawer'
+import { UploadConfirmModal } from '../../components/drafts/UploadConfirmModal'
 import { VideoSelectModal } from '../../components/video/VideoSelectModal'
 import { Button, EmptyState, Tabs } from '../../components/ui'
 
@@ -33,7 +34,6 @@ const reparseDraft = async (id: number) => {
   }
 }
 const deleteDraft = (link: string) => api.post('/delete-draft-video', { link })
-const queueUpload = (draft: DraftVideo) => api.post('/add-to-remote-upload', { link: draft.link, id: draft.id })
 
 export function Drafts() {
   const queryClient = useQueryClient()
@@ -47,6 +47,7 @@ export function Drafts() {
   const [selectedLinks, setSelectedLinks] = useState<string[]>([])
   const [pickerOpen, setPickerOpen] = useState(false)
   const [publishing, setPublishing] = useState<DraftVideo | null>(null)
+  const [uploadTargets, setUploadTargets] = useState<DraftVideo[] | null>(null)
   // Drafts saved as videos this session; they stay listed when "remove draft" is off.
   const [publishedIds, setPublishedIds] = useState<number[]>([])
   const [reparsingIds, setReparsingIds] = useState<number[]>([])
@@ -114,16 +115,6 @@ export function Drafts() {
       },
     })
 
-  const upload = async (draft: DraftVideo) => {
-    try {
-      await queueUpload(draft)
-      toast.success('Upload queued')
-      refreshQueue()
-    } catch (error) {
-      toast.error(errorMessage(error, 'Failed to queue the upload'))
-    }
-  }
-
   // Confirm, run with the dialog's spinner showing, then refresh the queue.
   const confirmBulk = (
     options: { title: string; message: string; confirmLabel: string; tone?: 'danger' | 'primary' },
@@ -165,18 +156,6 @@ export function Drafts() {
       },
       () => Promise.all(selectedLinks.map(deleteDraft)),
       `${selectedLinks.length} drafts deleted`,
-    )
-
-  const handleBulkUpload = () =>
-    confirmBulk(
-      {
-        title: `Upload ${uploadable.length} Videos?`,
-        message: `Queue ${uploadable.length} selected drafts for upload?`,
-        confirmLabel: 'Start Uploads',
-        tone: 'primary',
-      },
-      () => Promise.all(uploadable.map(queueUpload)),
-      `${uploadable.length} uploads queued`,
     )
 
   const handleBulkReparse = () =>
@@ -260,7 +239,7 @@ export function Drafts() {
                   </Button>
                 )}
                 {uploadable.length > 0 && (
-                  <Button size="sm" variant="outline" onClick={handleBulkUpload} leftIcon={<CloudUpload className="size-3.5" />}>
+                  <Button size="sm" variant="outline" onClick={() => setUploadTargets(uploadable)} leftIcon={<CloudUpload className="size-3.5" />}>
                     Upload ({uploadable.length})
                   </Button>
                 )}
@@ -320,7 +299,7 @@ export function Drafts() {
               reparsePending={reparsingIds.includes(draft.id)}
               onToggleSelect={() => toggleSelect(draft.link)}
               onPublish={() => setPublishing(draft)}
-              onUpload={() => upload(draft)}
+              onUpload={() => setUploadTargets([draft])}
               onReparse={() => reparse(draft)}
               onToggleBest={() => toggleBest([draft.link])}
               onDelete={() => handleDelete(draft)}
@@ -335,6 +314,17 @@ export function Drafts() {
           remaining={readyQueue.filter((d) => d.id !== publishing.id).length}
           onClose={() => setPublishing(null)}
           onPublished={handlePublished}
+        />
+      )}
+
+      {uploadTargets && (
+        <UploadConfirmModal
+          drafts={uploadTargets}
+          onClose={() => setUploadTargets(null)}
+          onQueued={() => {
+            setSelectedLinks([])
+            setUploadTargets(null)
+          }}
         />
       )}
 
